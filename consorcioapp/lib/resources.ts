@@ -5,7 +5,7 @@ export interface RecordData {
 export interface Field {
   name: string;
   label: string;
-  type?: "text" | "email" | "number" | "datetime-local" | "textarea";
+  type?: "text" | "email" | "number" | "date" | "datetime-local" | "textarea";
   source?: string;
   relation?: string;
   optional?: boolean;
@@ -15,6 +15,8 @@ export interface Field {
   pattern?: string;
   scope?: string;
   options?: { value: string; label: string }[];
+  readOnly?: boolean;
+  omitUnchanged?: boolean;
 }
 export interface Resource {
   title: string;
@@ -72,6 +74,33 @@ const unitFields = (scope: "PRIVADO" | "COMUN") =>
   unit.map((field) =>
     field.name === "tipoUnidadId" ? { ...field, scope } : field,
   );
+// Mantener los valores alineados con provinciasArgentinas del backend.
+const provinciasArgentinas = [
+  "Buenos Aires",
+  "Catamarca",
+  "Chaco",
+  "Chubut",
+  "Ciudad Autónoma de Buenos Aires",
+  "Córdoba",
+  "Corrientes",
+  "Entre Ríos",
+  "Formosa",
+  "Jujuy",
+  "La Pampa",
+  "La Rioja",
+  "Mendoza",
+  "Misiones",
+  "Neuquén",
+  "Río Negro",
+  "Salta",
+  "San Juan",
+  "San Luis",
+  "Santa Cruz",
+  "Santa Fe",
+  "Santiago del Estero",
+  "Tierra del Fuego, Antártida e Islas del Atlántico Sur",
+  "Tucumán",
+];
 export const resources: Record<string, Resource> = {
   administraciones: {
     title: "Administraciones de consorcio",
@@ -120,7 +149,7 @@ export const resources: Record<string, Resource> = {
     description: "Administrá los espacios compartidos y su capacidad.",
     fields: [
       ...unitFields("COMUN"),
-      { name: "capacidad", label: "Capacidad", type: "number", min: 0 },
+      { name: "capacidad", label: "Capacidad", type: "number", min: 0, optional: true },
     ],
   },
   empleados: {
@@ -159,7 +188,17 @@ export const resources: Record<string, Resource> = {
     title: "Localidades",
     singular: "localidad",
     description: "Mantené el catálogo de localidades y provincias.",
-    fields: [name, { name: "provincia", label: "Provincia", max: 255 }],
+    fields: [
+      name,
+      {
+        name: "provincia",
+        label: "Provincia",
+        options: provinciasArgentinas.map((provincia) => ({
+          value: provincia,
+          label: provincia,
+        })),
+      },
+    ],
   },
   "tipos-unidad": {
     title: "Tipos de unidad",
@@ -183,7 +222,16 @@ export const resources: Record<string, Resource> = {
     singular: "incidencia",
     description: "Consultá y actualizá los reportes de las unidades.",
     fields: [
-      { name: "estado", label: "Estado", max: 255 },
+      {
+        name: "estado",
+        label: "Estado",
+        omitUnchanged: true,
+        options: [
+          { value: "Reportado", label: "Reportado" },
+          { value: "En revisión", label: "En revisión" },
+          { value: "Finalizado", label: "Finalizado" },
+        ],
+      },
       description,
       ref("usuarioId", "Usuario", "users", "usuario"),
       ref("unidadId", "Unidad", "unidades", "unidad"),
@@ -192,6 +240,7 @@ export const resources: Record<string, Resource> = {
         label: "Fecha de cierre",
         type: "datetime-local",
         optional: true,
+        readOnly: true,
       },
     ],
   },
@@ -202,10 +251,19 @@ export const resources: Record<string, Resource> = {
     fields: [
       {
         name: "fechaReservacion",
-        label: "Fecha y hora",
-        type: "datetime-local",
+        label: "Día de la reserva",
+        type: "date",
       },
-      { name: "estado", label: "Estado", max: 255 },
+      {
+        name: "estado",
+        label: "Estado",
+        readOnly: true,
+        options: [
+          { value: "Reservado", label: "Reservado" },
+          { value: "Finalizado", label: "Finalizado" },
+          { value: "Cancelado", label: "Cancelado" },
+        ],
+      },
       description,
       ref("usuarioId", "Usuario", "users", "usuario"),
       ref("areaComunId", "Área común", "areas-comunes", "areaComun"),
@@ -220,9 +278,10 @@ export function recordLabel(row: RecordData): string {
   return `#${row.id}`;
 }
 export function fieldValue(row: RecordData, field: Field): string {
-  const value = row[field.relation ?? field.name];
+  const value = row[field.relation ?? field.name] ?? row[field.name];
   if (value === null || value === undefined) return "";
   if (typeof value === "object" && "id" in value) return String(value.id);
+  if (field.type === "date") return reservationDay(String(value));
   if (field.type === "datetime-local") {
     const date = new Date(String(value));
     return Number.isNaN(date.getTime())
@@ -233,10 +292,49 @@ export function fieldValue(row: RecordData, field: Field): string {
   }
   return String(value);
 }
-export function resourcePayload(form: FormData, fields: Field[]) {
+export function resourceFields(resource: string, row?: RecordData): Field[] {
+  return resources[resource].fields.map((field) => {
+    if (resource === "reservaciones" && row) {
+      return {
+        ...field,
+        readOnly:
+          field.readOnly ||
+          field.name === "usuarioId" ||
+          row.estado !== "Reservado",
+      };
+    }
+    if (resource !== "incidencias" || field.name !== "estado") return field;
+    if (!row) return { ...field, readOnly: true };
+    const index = field.options!.findIndex(
+      (option) => option.value === row.estado,
+    );
+    return {
+      ...field,
+      readOnly: index < 0 || index === field.options!.length - 1,
+      options:
+        index < 0 ? field.options : field.options!.slice(index, index + 2),
+    };
+  });
+}
+
+export function resourcePayload(
+  form: FormData,
+  fields: Field[],
+  row?: RecordData,
+) {
+  const reservation = fields.some((field) => field.name === "fechaReservacion");
+  if (reservation && row && row.estado !== "Reservado")
+    throw new Error("Solo se puede modificar una reserva en estado Reservado.");
   const body: Record<string, unknown> = {};
   for (const field of fields) {
+    if (
+      reservation &&
+      (field.name === "estado" || (row && field.name === "usuarioId"))
+    )
+      continue;
+    if (field.readOnly) continue;
     const value = String(form.get(field.name) ?? "");
+    if (field.omitUnchanged && row && value === row[field.name]) continue;
     if (
       field.options &&
       !field.options.some((option) => option.value === value)
@@ -249,11 +347,54 @@ export function resourcePayload(form: FormData, fields: Field[]) {
     body[field.name] =
       field.source || field.type === "number"
         ? Number(value)
-        : field.type === "datetime-local"
-          ? new Date(value).toISOString()
-          : value.trim();
+        : field.type === "date"
+          ? reservationDate(value)
+          : field.type === "datetime-local"
+            ? new Date(value).toISOString()
+            : value.trim();
   }
   if (body.beginAt && body.endAt && String(body.endAt) < String(body.beginAt))
     throw new Error("La fecha de fin no puede ser anterior a la de inicio.");
   return body;
+}
+
+export const RESERVATION_TIME_ZONE = "America/Argentina/Buenos_Aires";
+
+export function reservationDay(value: string | Date = new Date()): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: RESERVATION_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function reservationDate(day: string, now = new Date()): string {
+  // Medianoche de Buenos Aires: la conversión a UTC conserva el día elegido.
+  const iso = `${day}T00:00:00-03:00`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || reservationDay(iso) !== day)
+    throw new Error("Seleccioná un día válido para la reserva.");
+  if (day < reservationDay(now))
+    throw new Error("No se puede reservar un día que ya terminó.");
+  return iso;
+}
+
+export function canModifyReservation(
+  row: RecordData,
+  userId?: number,
+): boolean {
+  const owner = row.usuario ?? row.usuarioId;
+  const ownerId =
+    typeof owner === "object" && owner !== null && "id" in owner
+      ? owner.id
+      : owner;
+  return (
+    userId !== undefined &&
+    Number(ownerId) === userId &&
+    row.estado === "Reservado"
+  );
 }

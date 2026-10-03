@@ -15,11 +15,12 @@ export default function Home() {
     const controller = new AbortController();
     const expired = () => {
       setUser(null);
-      setError("Tu sesión venció. Volvé a iniciar sesión.");
+      setError(session.getExpiredMessage() || "Tu sesión venció. Volvé a iniciar sesión.");
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expired);
     async function restore() {
       try {
+        if (!session.getToken() && session.getExpiredMessage()) setError(session.getExpiredMessage()!);
         if (session.getToken()) {
           const profile = await auth.profile(controller.signal);
           if (!controller.signal.aborted) { setUser(profile); router.replace("/backoffice"); }

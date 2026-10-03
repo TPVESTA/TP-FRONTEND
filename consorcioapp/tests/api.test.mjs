@@ -61,3 +61,30 @@ test('maneja backend caído y respuestas no JSON', async () => {
   const invalid = client(async () => new Response('Bad gateway', { status: 502 }));
   await assert.rejects(invalid.apiRequest('/auth/profile'), { status: 502 });
 });
+
+test('cancelación de reservas usa PUT, Bearer y conserva la respuesta del backend', async () => {
+  const api = client(async (url, init) => {
+    assert.equal(url, '/api/reservaciones/12');
+    assert.equal(init.method, 'PUT');
+    assert.equal(init.headers.get('Authorization'), 'Bearer token');
+    assert.equal(init.body, '{"estado":"Cancelado"}');
+    return Response.json({ success: true, data: { id: 12, estado: 'Cancelado' }, message: 'Reserva cancelada' });
+  });
+  api.session.setToken('token');
+  const response = await api.apiRequest('/reservaciones/12', { method: 'PUT', body: { estado: 'Cancelado' } });
+  assert.equal(response.data.estado, 'Cancelado');
+  assert.equal(response.message, 'Reserva cancelada');
+});
+
+test('reservas conserva mensajes 400, 403, 404 y 401, incluso al vencer sesión', async () => {
+  for (const [status, message] of [[400, 'Operación inválida'], [403, 'Usuario sin permiso'], [404, 'Reserva inexistente'], [401, 'Autenticación requerida']]) {
+    const api = client(async () => Response.json({ success: false, error: message }, { status }));
+    api.session.setToken('token');
+    await assert.rejects(api.apiRequest('/reservaciones/12', { method: 'PUT', body: { estado: 'Cancelado' } }), { status, message });
+    if (status === 401) {
+      assert.equal(api.session.getExpiredMessage(), message);
+      api.session.setToken('nuevo-token');
+      assert.equal(api.session.getExpiredMessage(), null);
+    }
+  }
+});
