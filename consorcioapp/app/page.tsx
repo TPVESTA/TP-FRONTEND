@@ -23,7 +23,7 @@ export default function Home() {
         if (!session.getToken() && session.getExpiredMessage()) setError(session.getExpiredMessage()!);
         if (session.getToken()) {
           const profile = await auth.profile(controller.signal);
-          if (!controller.signal.aborted) { setUser(profile); router.replace("/backoffice"); }
+          if (!controller.signal.aborted) { setUser(profile); router.replace("/mi-consorcio"); }
         }
       } catch (err) {
         if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "No se pudo recuperar la sesión.");
@@ -47,7 +47,7 @@ export default function Home() {
     try {
       setUser(await auth.login({ email: String(fields.get("email")).trim(), password: String(fields.get("password")) }));
       form.reset();
-      router.replace("/backoffice");
+      router.replace("/mi-consorcio");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
     } finally {

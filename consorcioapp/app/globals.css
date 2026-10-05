@@ -118,4 +118,31 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .bo-sidebar nav[aria-label="Gestión del consorcio"] a { padding-top: 9px; padding-bottom: 9px; font-size: 12px; }
 .bo-sidebar .bo-nav-label { margin-top: 24px; }
 .bo-cell-content { max-width: 280px; overflow-wrap: anywhere; }
+.resident-properties { margin: -12px 0 28px; display: grid; gap: 8px; }
+.resident-property-picker { display: grid; gap: 8px; width: min(100%, 640px); font-size: 13px; font-weight: 600; }
+.resident-property-picker select { width: 100%; min-width: 0; border: 1px solid #c6ddd7; background: white; border-radius: 8px; padding: 13px 14px; color: #30665d; font-size: 14px; font-weight: 400; }
+.resident-properties .bo-muted { margin: 0; }
+.resident-actions, .resident-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-bottom: 28px; }
+.resident-action { display: block; padding: 28px; border-radius: 14px; border: 1px solid #087e75; background: #087e75; color: white; transition: transform .15s, box-shadow .15s; }
+.resident-action:hover { transform: translateY(-2px); box-shadow: 0 8px 22px #142f3915; }
+.resident-action.report { background: white; color: var(--ink); border-color: var(--line); }
+.resident-action-icon { display: inline-flex; padding: 12px; background: #ffffff22; border-radius: 12px; margin-bottom: 20px; }
+.resident-action.report .resident-action-icon { color: #9a672a; background: #fff3e2; }
+.resident-action h2 { font-size: 23px; font-weight: 650; letter-spacing: -.5px; }
+.resident-action p { font-size: 14px; line-height: 1.6; margin: 9px 0 25px; color: #deefec; }
+.resident-action.report p { color: var(--muted); }
+.resident-action strong { display: flex; justify-content: space-between; font-size: 13px; }
+.resident-action.report strong { color: var(--accent); }
+.resident-summary > section { min-width: 0; }
+.resident-section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.resident-section-heading a { font-size: 12px; color: var(--accent); }
+.resident-section-heading a:hover { text-decoration: underline; }
+.resident-next { padding-top: 25px; }
+.resident-date { margin: 18px 0 9px; font-size: 19px; font-weight: 600; text-transform: capitalize; }
+.resident-next h3, .resident-reports h3 { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.resident-reports { margin-top: 20px; }
+.resident-reports li { padding: 17px 0; border-top: 1px solid var(--line); }
+.resident-reports li > div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.resident-reports li > p { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 9px; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .resident-actions, .resident-summary { grid-template-columns: 1fr; gap: 16px; } .resident-action { padding: 23px; } .bo-sidebar nav[aria-label="Mi consorcio"] { flex-wrap: wrap; } }
 @media (max-width: 720px) { .bo-sidebar nav[aria-label="Gestión del consorcio"] { overflow-x: auto; white-space: nowrap; } }

@@ -11,7 +11,7 @@ import { resources } from "@/lib/resources";
 const CurrentUser = createContext<User | null>(null);
 export const useCurrentUser = () => useContext(CurrentUser);
 
-export default function BackofficeShell({ children }: { children: React.ReactNode }) {
+export default function BackofficeShell({ children, resident = false }: { children: React.ReactNode; resident?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
@@ -41,13 +41,13 @@ export default function BackofficeShell({ children }: { children: React.ReactNod
 
   return <CurrentUser.Provider value={user}><div className="bo-shell">
     <aside className="bo-sidebar">
-      <Link className="bo-brand" href="/backoffice"><span className="bo-logo">C</span> Consorcio<span className="bo-brand-sub">BACKOFFICE</span></Link>
-      <p className="bo-nav-label">GENERAL</p>
+      <Link className="bo-brand" href={resident ? "/mi-consorcio" : "/backoffice"}><span className="bo-logo">C</span> Consorcio<span className="bo-brand-sub">{resident ? "MI CONSORCIO" : "BACKOFFICE"}</span></Link>
+      {resident ? <><p className="bo-nav-label">MI CONSORCIO</p><nav aria-label="Mi consorcio">{[["/mi-consorcio", "Inicio"], ["/mi-consorcio/reservas", "Mis reservas"], ["/mi-consorcio/incidencias", "Mis incidencias"]].map(([href, label]) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>{label}</Link>)}</nav></> : <><p className="bo-nav-label">GENERAL</p>
       <nav aria-label="Navegación principal">{[["/backoffice", "Resumen", "◫"], ["/backoffice/usuarios", "Usuarios", "◎"], ["/backoffice/roles", "Roles", "◇"]].map(([href, label, icon]) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}><span aria-hidden="true">{icon}</span>{label}</Link>)}</nav>
-      <p className="bo-nav-label">GESTIÓN</p>
+      <Link href="/mi-consorcio">Ir a mi consorcio</Link><p className="bo-nav-label">GESTIÓN</p>
       <nav aria-label="Gestión del consorcio">{Object.entries(resources).map(([key, resource]) => <Link key={key} href={`/backoffice/${key}`} aria-current={pathname === `/backoffice/${key}` ? "page" : undefined}>{resource.title}</Link>)}</nav>
-      <div className="bo-sidebar-bottom"><span className="bo-dot" /> Administración general</div>
+      </>}<div className="bo-sidebar-bottom"><span className="bo-dot" /> {resident ? "Portal de residentes" : "Administración general"}</div>
     </aside>
-    <div className="bo-workspace"><header className="bo-header"><span>Panel de administración</span><div className="bo-account"><span className="bo-avatar">{user.nombre[0]}{user.apellido[0]}</span><div><strong>{user.nombre} {user.apellido}</strong><small>{user.email}</small></div><button className="bo-button secondary" onClick={logout}>Salir</button></div></header><main className="bo-main">{children}</main></div>
+    <div className="bo-workspace"><header className="bo-header"><span>{resident ? "Portal de residentes" : "Panel de administración"}</span><div className="bo-account"><span className="bo-avatar">{user.nombre[0]}{user.apellido[0]}</span><div><strong>{user.nombre} {user.apellido}</strong><small>{user.email}</small></div><button className="bo-button secondary" onClick={logout}>Salir</button></div></header><main className="bo-main">{children}</main></div>
   </div></CurrentUser.Provider>;
 }
