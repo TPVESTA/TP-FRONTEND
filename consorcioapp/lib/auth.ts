@@ -1,4 +1,6 @@
 import { apiRequest, session } from "./api";
+import { validContexts, type PermissionContext } from "./permissions";
+export { isSystemAdmin, type PermissionContext } from "./permissions";
 
 export interface User {
   id: number;
@@ -26,6 +28,11 @@ async function authenticate(path: string, body: LoginInput | RegisterInput) {
 }
 
 export const auth = {
+  async permissions(signal?: AbortSignal) {
+    const { data } = await apiRequest<{ contextos: PermissionContext[] }>("/auth/permisos", { signal });
+    if (!data || !validContexts(data.contextos)) throw new Error("No se pudieron verificar los permisos. Intentá actualizar la sesión.");
+    return data.contextos;
+  },
   login: (input: LoginInput) => authenticate("/auth/login", input),
   register: (input: RegisterInput) => authenticate("/auth/register", input),
   async profile(signal?: AbortSignal) {

@@ -88,3 +88,59 @@ test('reservas conserva mensajes 400, 403, 404 y 401, incluso al vencer sesión'
     }
   }
 });
+
+test('403 actualiza permisos sin cerrar sesión y evita bucles al consultar permisos', async () => {
+  const api = client(async () => Response.json({ success: false }, { status: 403 }));
+  api.session.setToken('token');
+  await assert.rejects(api.apiRequest('/incidencias'), err => err.status === 403 && /permiso/.test(err.message));
+  assert.equal(api.session.getToken(), 'token');
+  assert.deepEqual(api.events, [api.PERMISSIONS_CHANGED_EVENT]);
+  await assert.rejects(api.apiRequest('/auth/permisos'), { status: 403 });
+  assert.equal(api.events.length, 1);
+});
+
+test('404, 409 y 429 sin mensaje muestran instrucciones útiles', async () => {
+  for (const [status, pattern] of [[404, /registro|ámbito/], [409, /conflicto|cambiaron/], [429, /Esperá/]]) {
+    const api = client(async () => Response.json({ success: false }, { status }));
+    await assert.rejects(api.apiRequest('/reservaciones/5'), err => err.status === status && pattern.test(err.message));
+  }
+});
+
+test('5xx no expone detalles internos; errores de validación conservan solo strings', async () => {
+  const server = client(async () => Response.json({ success: false, error: 'SELECT password FROM usuario', errors: ['stack privado'] }, { status: 500 }));
+  await assert.rejects(server.apiRequest('/users'), err => err.status === 500 && !/SELECT|password/.test(err.message) && err.details.length === 0);
+  const invalid = client(async () => Response.json({ success: false, errors: ['Dato inválido', { secret: 'privado' }] }, { status: 400 }));
+  await assert.rejects(invalid.apiRequest('/users'), err => err.details.length === 1 && err.details[0] === 'Dato inválido');
+});
+
+test('401 no JSON también vence sesión; 403 no JSON refresca permisos', async () => {
+  for (const status of [401, 403]) {
+    const api = client(async () => new Response('HTML error', { status }));
+    api.session.setToken('token');
+    await assert.rejects(api.apiRequest('/users'), { status });
+    assert.equal(api.session.getToken(), status === 401 ? null : 'token');
+    assert.deepEqual(api.events, [status === 401 ? api.SESSION_EXPIRED_EVENT : api.PERMISSIONS_CHANGED_EVENT]);
+  }
+});
+
+test('una petición con señal propia sigue teniendo timeout y respeta la cancelación', async () => {
+  const controller = new AbortController();
+  const api = client(async (url, init) => {
+    assert.notEqual(init.signal, controller.signal);
+    assert.equal(init.signal.aborted, false);
+    controller.abort();
+    assert.equal(init.signal.aborted, true);
+    throw controller.signal.reason;
+  });
+  await assert.rejects(api.apiRequest('/users', { signal: controller.signal }), err => err.name === 'AbortError');
+  assert.deepEqual(api.events, []);
+});
+
+test('timeout y escritura sin conexión no reenvían y piden verificar el resultado antes de repetir', async () => {
+  let calls = 0;
+  const timeout = client(async () => { calls++; throw { name: 'TimeoutError' }; });
+  await assert.rejects(timeout.apiRequest('/reservaciones', { method: 'POST', body: {} }), err => err.status === 0 && /tardó demasiado/.test(err.message));
+  const offline = client(async () => { calls++; throw new TypeError('network'); });
+  await assert.rejects(offline.apiRequest('/reservaciones', { method: 'POST', body: {} }), err => err.status === 0 && /confirmar|antes de volver/.test(err.message));
+  assert.equal(calls, 2);
+});

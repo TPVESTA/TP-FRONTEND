@@ -294,6 +294,10 @@ export function fieldValue(row: RecordData, field: Field): string {
 }
 export function resourceFields(resource: string, row?: RecordData): Field[] {
   return resources[resource].fields.map((field) => {
+    if (["reservaciones", "incidencias"].includes(resource) &&
+      (field.name === "usuarioId" || (resource === "incidencias" && !!row && field.name === "unidadId"))) {
+      return { ...field, readOnly: true };
+    }
     if (resource === "reservaciones" && row) {
       return {
         ...field,
@@ -383,9 +387,11 @@ export function reservationDate(day: string, now = new Date()): string {
   return iso;
 }
 
+/** @deprecated Use canBusiness from permissions.ts for authorization by context. */
 export function canModifyReservation(
   row: RecordData,
   userId?: number,
+  systemAdmin = false,
 ): boolean {
   const owner = row.usuario ?? row.usuarioId;
   const ownerId =
@@ -394,7 +400,7 @@ export function canModifyReservation(
       : owner;
   return (
     userId !== undefined &&
-    Number(ownerId) === userId &&
+    (systemAdmin || Number(ownerId) === userId) &&
     row.estado === "Reservado"
   );
 }

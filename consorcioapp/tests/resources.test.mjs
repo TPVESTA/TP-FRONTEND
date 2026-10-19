@@ -108,7 +108,7 @@ test('reservas crea sin estado y edita sin cambiar el dueño', () => {
   form.set('areaComunId', '7');
   form.set('estado', 'Finalizado');
   const body = resourcePayload(form, resourceFields('reservaciones'));
-  assert.equal(JSON.stringify(body), JSON.stringify({ fechaReservacion: '2099-10-03T00:00:00-03:00', descripcion: 'Reunión', usuarioId: 5, areaComunId: 7 }));
+  assert.equal(JSON.stringify(body), JSON.stringify({ fechaReservacion: '2099-10-03T00:00:00-03:00', descripcion: 'Reunión', areaComunId: 7 }));
   const row = { id: 1, estado: 'Reservado', usuario: { id: 5 } };
   const fields = resourceFields('reservaciones', row);
   assert.equal(fields.find(f => f.name === 'usuarioId').readOnly, true);
