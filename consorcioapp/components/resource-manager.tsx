@@ -8,6 +8,15 @@ import Modal from "./modal";
 import Availability from "./availability";
 import { useCurrentUser, usePermissions } from "./backoffice-shell";
 
+function employeeRoleId(row: RecordData): number | undefined {
+  const link = row.usuarioRol;
+  if (link && typeof link === "object") {
+    const nested = relationId(link as RecordData, "rol");
+    if (nested) return nested;
+  }
+  return relationId(row, "rol");
+}
+
 export default function ResourceManager({ resource, personal = false, openCreate = false }: { resource: string; personal?: boolean; openCreate?: boolean }) {
   const config = resources[resource];
   const user = useCurrentUser();
@@ -34,7 +43,7 @@ export default function ResourceManager({ resource, personal = false, openCreate
   const canCreate = canResource(permissions, resource, "CREAR");
   const title = personal ? reservation ? "Mis reservas" : "Mis incidencias" : config.title;
   const allowed = (action: Action, row?: RecordData) => row && business ? canBusiness(permissions, section, action, row, user?.id, references) : canResource(permissions, resource, action, row ? recordTarget(row, resource, references) : undefined);
-  const canEdit = editor === "new" ? canCreate : !!editingRow && allowed("EDITAR", editingRow) && (resource !== "empleados" || !!references.roles?.some(r => r.id === relationId(editingRow, "rol") && canDelegate(permissions, r as unknown as Role, recordTarget(editingRow, resource, references))));
+  const canEdit = editor === "new" ? canCreate : !!editingRow && allowed("EDITAR", editingRow) && (resource !== "empleados" || !!references.roles?.some(r => r.id === employeeRoleId(editingRow) && canDelegate(permissions, r as unknown as Role, recordTarget(editingRow, resource, references))));
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
       const sources = [...new Set(config.fields.flatMap(f => f.source && !(business && f.name === "usuarioId") ? [f.source] : []).concat(business && canResource(permissions, "propiedades", "LEER") ? ["propiedades"] : []))].filter(source => canResource(permissions, source, "LEER"));

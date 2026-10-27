@@ -7,13 +7,19 @@ export type Scope = "PROPIEDAD" | "ADMINISTRACION" | "GLOBAL";
 export interface Role { id: number; nombre: string; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
 export type Reference = number | { id: number };
 export interface Assignment {
-  id: number; usuario: Reference; rol: Reference;
+  id: number; usuario?: Reference; rol?: Reference;
+  usuarioRol?: { id: number; usuario: Reference; rol: Reference; beginAt: string; endAt: string | null };
   propiedad?: Reference; administracion?: Reference;
   beginAt: string; endAt: string | null;
 }
+export const assignmentUser = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.usuario ?? assignment.usuario;
+export const assignmentRole = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.rol ?? assignment.rol;
 export interface Property { id: number; nroUnidad: string; edificio: Reference }
 export interface Administration { id: number; nombre: string }
-export const referenceId = (value: Reference) => typeof value === "number" ? value : value.id;
+export const referenceId = (value: Reference | null | undefined): number | undefined => {
+  if (value == null) return undefined;
+  return typeof value === "number" ? value : value.id;
+};
 export const assignmentPath = (scope: Scope) => scope === "GLOBAL" ? "/usuarios-roles" : scope === "PROPIEDAD" ? "/usuarios-roles-propiedad" : "/empleados";
 export function assignmentStatus(assignment: Pick<Assignment, "beginAt" | "endAt">, now = Date.now()) {
   if (new Date(assignment.beginAt).getTime() > now) return "Programado";

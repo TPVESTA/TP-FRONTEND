@@ -46,6 +46,16 @@ test('edición propia usa perfil personal y nunca envía estado', () => {
   assert.equal(Object.hasOwn(body, 'estado'), false);
 });
 
+test('nombre y apellido rechazan números y símbolos', () => {
+  const f = form();
+  f.set('nombre', 'Ana2');
+  assert.throws(() => userPayload(f, global), /nombre/);
+  f.set('nombre', 'Ana'); f.set('apellido', 'Pérez!');
+  assert.throws(() => userPayload(f, global), /apellido/);
+  f.set('apellido', "O'Connor-Pérez");
+  assert.equal(userPayload(f, global).body.apellido, "O'Connor-Pérez");
+});
+
 test('gestión global omite campos sensibles sin cambios y permite cambios explícitos autorizados', () => {
   const f = form();
   const unchanged = userPayload(f, global, user, 99).body;

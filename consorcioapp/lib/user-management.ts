@@ -2,13 +2,24 @@ import type { ManagedUser } from "./backoffice";
 import type { RegisterInput } from "./auth";
 import { administrationIds, hasPermission, type PermissionContext } from "./permissions";
 
+const personName = /^[\p{L}]+(?:[ '\-][\p{L}]+)*$/u;
+
 export function userPayload(form: FormData, permissions: PermissionContext[], user?: ManagedUser, currentUserId?: number) {
   const text = (name: string) => String(form.get(name) ?? "").trim();
+  const person = (value: string, label: string) => {
+    if (!personName.test(value)) throw new Error(`${label} solo puede contener letras, espacios, apóstrofos y guiones.`);
+    return value;
+  };
   const globalEdit = hasPermission(permissions, "USUARIOS", "EDITAR", undefined, "GLOBAL");
   const globalCreate = hasPermission(permissions, "USUARIOS", "CREAR", undefined, "GLOBAL");
   const ownProfile = !!user && user.id === currentUserId && !globalEdit;
   const identity = !user || globalEdit || ownProfile;
-  const body: Partial<RegisterInput> & { administracionId?: number } = { nombre: text("nombre"), apellido: text("apellido"), cuil: text("cuil"), fechaNacimiento: text("fechaNacimiento") };
+  const body: Partial<RegisterInput> & { administracionId?: number } = {
+    nombre: person(text("nombre"), "El nombre"),
+    apellido: person(text("apellido"), "El apellido"),
+    cuil: text("cuil"),
+    fechaNacimiento: text("fechaNacimiento"),
+  };
   if (identity && (!user || text("email") !== user.email)) body.email = text("email");
   const password = String(form.get("password") ?? "");
   if (identity && password) body.password = password;

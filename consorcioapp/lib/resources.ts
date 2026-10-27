@@ -157,14 +157,14 @@ export const resources: Record<string, Resource> = {
     singular: "empleo",
     description: "Vinculá usuarios con una administración y su función.",
     fields: [
-      ref("usuarioId", "Usuario", "users", "usuario"),
+      ref("usuarioId", "Usuario", "users", "usuarioRol.usuario"),
       ref(
         "administracionId",
         "Administración",
         "administraciones",
         "administracion",
       ),
-      { ...ref("rolId", "Rol", "roles", "rol"), scope: "ADMINISTRACION" },
+      { ...ref("rolId", "Rol", "roles", "usuarioRol.rol"), scope: "ADMINISTRACION" },
       ...period,
     ],
   },
@@ -277,8 +277,15 @@ export function recordLabel(row: RecordData): string {
   if (row.nroUnidad) return `Unidad ${row.nroUnidad} (#${row.id})`;
   return `#${row.id}`;
 }
+function readRelation(row: RecordData, relation: string): unknown {
+  if (!relation.includes(".")) return row[relation];
+  return relation.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as RecordData)[key];
+  }, row);
+}
 export function fieldValue(row: RecordData, field: Field): string {
-  const value = row[field.relation ?? field.name] ?? row[field.name];
+  const value = (field.relation ? readRelation(row, field.relation) : undefined) ?? row[field.name];
   if (value === null || value === undefined) return "";
   if (typeof value === "object" && "id" in value) return String(value.id);
   if (field.type === "date") return reservationDay(String(value));
