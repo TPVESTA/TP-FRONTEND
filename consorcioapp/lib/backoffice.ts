@@ -4,7 +4,7 @@ import type { Permission } from "./permissions";
 
 export interface ManagedUser extends User { cuil: string }
 export type Scope = "PROPIEDAD" | "ADMINISTRACION" | "GLOBAL";
-export interface Role { id: number; nombre: string; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
+export interface Role { id: number; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
 export type Reference = number | { id: number };
 export interface Assignment {
   id: number; usuario?: Reference; rol?: Reference;
@@ -39,8 +39,6 @@ export const usersApi = {
   save: (data: Partial<RegisterInput> & { administracionId?: number }, id?: number, ownProfile = false) =>
     apiRequest<ManagedUser>(ownProfile ? "/auth/profile" : id ? `/users/${id}` : "/users", { method: id ? "PUT" : "POST", body: data }),
   remove: (id: number) => apiRequest<ManagedUser>(`/users/${id}`, { method: "DELETE" }),
-  unlink: (id: number, administrationId: number) => apiRequest(`/users/${id}/vinculos/${administrationId}`, { method: "DELETE" }),
-  link: (id: number, administrationId: number) => apiRequest(`/users/${id}/vinculos/${administrationId}`, { method: "POST" }),
 };
 
 export const scopeLabel = (scope: Scope) => ({ GLOBAL: "Global", PROPIEDAD: "Propiedad", ADMINISTRACION: "Administración" })[scope];
