@@ -4,7 +4,7 @@ import type { Permission } from "./permissions";
 
 export interface ManagedUser extends User { cuil: string }
 export type Scope = "PROPIEDAD" | "ADMINISTRACION" | "GLOBAL";
-export interface Role { id: number; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
+export interface Role { id: number; nombre: string; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
 export type Reference = number | { id: number };
 export interface Assignment {
   id: number; usuario?: Reference; rol?: Reference;
@@ -15,6 +15,7 @@ export interface Assignment {
 export const assignmentUser = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.usuario ?? assignment.usuario;
 export const assignmentRole = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.rol ?? assignment.rol;
 export interface Property { id: number; nroUnidad: string; edificio: Reference }
+export interface Building { id: number; nombre: string }
 export interface Administration { id: number; nombre: string }
 export const referenceId = (value: Reference | null | undefined): number | undefined => {
   if (value == null) return undefined;

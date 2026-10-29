@@ -12,7 +12,60 @@ Reservas e incidencias toman el autor de la sesión. Las altas de residentes sel
 
 La pantalla de Roles permite consultar y, con edición global, reemplazar la matriz. La delegación comprueba permisos propios y, para los roles iniciales de propiedad, los límites documentados en `TP-BACKEND/AUTORIZACION.md`. Expensas solo aparece en la configuración de permisos: el backend todavía no implementa ese módulo.
 
+## Alta de usuarios por edificio y propiedad
+
+Al elegir un rol de ámbito `PROPIEDAD` en «Nuevo usuario», se selecciona primero
+el `Edificio` y después una `Propiedad` de ese edificio. Se muestran los nombres
+de los edificios que tienen propiedades asignables para el rol y los permisos
+actuales. La propiedad permanece deshabilitada hasta elegir un edificio.
+
+Cambiar de edificio o de rol limpia la selección anterior. Antes de guardar se
+comprueba que la propiedad pertenezca al edificio seleccionado y siga siendo
+asignable. El backend recibe el `rolId` y la `propiedadId` habituales; el edificio
+se usa para organizar la selección. Los roles globales y de administración
+mantienen sus respectivos destinos.
+
+La carga de opciones informa los errores y permite reintentar conservando los
+datos personales ingresados. Las ocho pruebas del formulario cubren la cascada,
+los cambios de selección, el ámbito del Administrativo, el contrato de alta,
+selecciones inválidas, errores de carga y la edición de usuarios existentes.
+Se ejecutan con `npm run test:usuarios` o dentro de `npm test`.
+
+Para probarlo, abrir Usuarios → Nuevo usuario, elegir Propietario o Residente,
+seleccionar un edificio y comprobar que solo aparezcan sus unidades. Después
+elegir una propiedad y cambiar de edificio: la propiedad debe quedar vacía.
+
+## Filtros de reservas e incidencias
+
+Reservas ofrece `Desde` y `Hasta` sobre el día de la reserva en Buenos Aires.
+Ambos extremos son inclusivos y pueden usarse por separado. Permite consultar
+fechas pasadas. Un rango invertido informa el error y pide corregirlo.
+
+Incidencias ofrece un selector `Usuario` con los autores de las incidencias
+visibles en el ámbito actual. Cada autor aparece una sola vez y se filtra por
+su ID; los nombres iguales se distinguen con ese identificador. No se consulta
+el catálogo de usuarios ni se requiere permiso para gestionarlos. En «Mis
+incidencias» solo se ofrecen los autores de los registros propios.
+
+Los filtros se combinan con la búsqueda de texto, se conservan al actualizar
+el listado y pueden quitarse con `Limpiar filtros`. Se muestra cuántos
+registros coinciden sobre el total disponible. Se aplican en el frontend sobre
+los listados completos que ya devuelve el backend con su autorización; no
+amplían el alcance de los datos ni modifican registros. Seleccionar un
+resultado conserva la consulta de detalle por ID.
+
 ## Errores
+
+En los listados del gestor de recursos, «Ver» y «Ver / editar» consultan
+`GET /api/<recurso>/<id>` al seleccionar el registro, también al volver a
+abrirlo. El modal muestra la carga antes de presentar el formulario, que se
+completa con la respuesta actualizada. La fecha, las relaciones y el estado
+recibidos determinan los valores y las acciones disponibles.
+
+Si la consulta falla, el modal informa el error y permite reintentar. Cerrar
+el modal o salir de la pantalla cancela la consulta; las respuestas anteriores
+no reemplazan el detalle de una apertura posterior. Crear un registro nuevo
+abre un formulario vacío.
 
 - 401 autenticado: elimina la sesión y vuelve al ingreso con el mensaje correspondiente.
 - 403: conserva la sesión, actualiza permisos y explica la denegación.
@@ -27,8 +80,32 @@ Los errores de referencias no impiden consultar el listado principal. Las consul
 
 ```sh
 npm test
+npm run test:detalle
 npm run lint
 npm run build
 ```
 
 Las pruebas cubren aislamiento de contextos, permisos personalizados y revocados, operaciones propias y administrativas, delegación, contratos de payloads y errores de la API.
+
+Las 12 pruebas de detalle renderizan el componente real con React Testing
+Library y jsdom. Cubren el GET por ID, la espera de la respuesta, el guardado
+de datos actualizados, errores 403/404/500 y reintentos, cancelación y respuestas
+tardías, solo lectura, altas, respuestas inválidas y cambios de estado de
+reservas. Se ejecutan dentro de `npm test` o mediante `npm run test:detalle`.
+En PowerShell con scripts deshabilitados, usar `npm.cmd` en lugar de `npm`.
+
+La misma suite incluye nueve pruebas de filtros: límites del día local, rango
+inclusivo y abierto, rango invertido, combinación con texto y detalle,
+selección por usuario y homónimos, autores dentro del ámbito personal,
+relaciones serializadas y conservación del filtro después de actualizar.
+
+Para probar los filtros manualmente, ingresar a Reservas, elegir `Desde` y
+`Hasta` y comprobar que se incluyan las reservas de ambos días. Combinar el
+rango con `Buscar` y usar `Limpiar filtros` para recuperar el listado. En
+Incidencias, seleccionar un `Usuario` y verificar que solo aparezcan sus
+reportes. Si no hay coincidencias, limpiar los filtros o elegir otro criterio.
+
+Para verificarlo manualmente, abrir un listado, modificar el mismo registro
+desde otra sesión y luego seleccionar «Ver / editar» en la primera. El modal
+debe mostrar los cambios recientes. En la pestaña Network del navegador se
+puede comprobar la nueva solicitud GET por ID antes de guardar.
