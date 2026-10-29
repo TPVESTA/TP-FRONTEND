@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { session, SESSION_EXPIRED_EVENT } from "@/lib/api";
 import { auth, type User } from "@/lib/auth";
+import PasswordField from "@/components/password-field";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
@@ -71,9 +72,7 @@ export default function Home() {
             <label className="block text-sm font-medium">Correo electrónico
               <input name="email" type="email" autoComplete="username" required disabled={loading} className="mt-2 w-full rounded-lg border border-slate-300 p-3" />
             </label>
-            <label className="block text-sm font-medium">Contraseña
-              <input name="password" type="password" autoComplete="current-password" required minLength={6} maxLength={18} disabled={loading} className="mt-2 w-full rounded-lg border border-slate-300 p-3" />
-            </label>
+            <PasswordField className="block text-sm font-medium" label="Contraseña" name="password" required minLength={6} maxLength={18} autoComplete="current-password" disabled={loading} inputClassName="w-full rounded-lg border border-slate-300 p-3" />
             <button disabled={loading} className="w-full rounded-lg bg-teal-700 p-3 font-medium text-white disabled:opacity-50">{loading ? "Cargando…" : "Ingresar"}</button>
           </form>
         )}

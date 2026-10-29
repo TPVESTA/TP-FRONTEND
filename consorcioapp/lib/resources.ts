@@ -17,6 +17,7 @@ export interface Field {
   options?: { value: string; label: string }[];
   readOnly?: boolean;
   omitUnchanged?: boolean;
+  listLabel?: string;
 }
 export interface Resource {
   title: string;
@@ -34,6 +35,7 @@ const description: Field = {
 const tax: Field = {
   name: "cuit",
   label: "CUIT (11 dígitos)",
+  listLabel: "CUIT",
   pattern: "[0-9]{11}",
   max: 11,
 };
@@ -105,13 +107,14 @@ export const resources: Record<string, Resource> = {
   administraciones: {
     title: "Administraciones de consorcio",
     singular: "administración",
-    description: "Organizá las administraciones de los consorcios.",
+    description: "Organizá las administraciones de los consorcios. La dirección es la calle; la localidad se elige aparte.",
     softDelete: true,
     fields: [
       name,
       tax,
       { name: "email", label: "Correo electrónico", type: "email", max: 255 },
       { name: "direccion", label: "Dirección", max: 255 },
+      ref("localidadId", "Localidad", "localidades", "localidad"),
     ],
   },
   edificios: {
@@ -157,14 +160,14 @@ export const resources: Record<string, Resource> = {
     singular: "empleo",
     description: "Vinculá usuarios con una administración y su función.",
     fields: [
-      ref("usuarioId", "Usuario", "users", "usuario"),
+      ref("usuarioId", "Usuario", "users", "usuarioRol.usuario"),
       ref(
         "administracionId",
         "Administración",
         "administraciones",
         "administracion",
       ),
-      { ...ref("rolId", "Rol", "roles", "rol"), scope: "ADMINISTRACION" },
+      { ...ref("rolId", "Rol", "roles", "usuarioRol.rol"), scope: "ADMINISTRACION" },
       ...period,
     ],
   },
@@ -210,6 +213,7 @@ export const resources: Record<string, Resource> = {
       {
         name: "ambito",
         label: "Ámbito de la unidad",
+        listLabel: "Ámbito",
         options: [
           { value: "PRIVADO", label: "Privado" },
           { value: "COMUN", label: "Común" },
@@ -273,12 +277,25 @@ export const resources: Record<string, Resource> = {
 
 export function recordLabel(row: RecordData): string {
   if (row.nombre)
-    return `${row.nombre}${row.apellido ? ` ${row.apellido}` : ""}${row.provincia ? ` · ${row.provincia}` : ""} (#${row.id})`;
-  if (row.nroUnidad) return `Unidad ${row.nroUnidad} (#${row.id})`;
-  return `#${row.id}`;
+    return `${row.nombre}${row.apellido ? ` ${row.apellido}` : ""}${row.provincia ? ` · ${row.provincia}` : ""}`;
+  if (typeof row.descripcion === "string" && row.descripcion) return row.descripcion;
+  if (row.nroUnidad) {
+    const building = row.edificio;
+    const buildingName = building && typeof building === "object" && "nombre" in building ? String(building.nombre) : "";
+    return buildingName ? `Unidad ${row.nroUnidad} · ${buildingName}` : `Unidad ${row.nroUnidad}`;
+  }
+  if (row.email) return String(row.email);
+  return "Sin nombre";
+}
+function readRelation(row: RecordData, relation: string): unknown {
+  if (!relation.includes(".")) return row[relation];
+  return relation.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as RecordData)[key];
+  }, row);
 }
 export function fieldValue(row: RecordData, field: Field): string {
-  const value = row[field.relation ?? field.name] ?? row[field.name];
+  const value = (field.relation ? readRelation(row, field.relation) : undefined) ?? row[field.name];
   if (value === null || value === undefined) return "";
   if (typeof value === "object" && "id" in value) return String(value.id);
   if (field.type === "date") return reservationDay(String(value));

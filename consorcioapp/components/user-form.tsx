@@ -1,10 +1,11 @@
 "use client";
-import { useState, type FormEvent } from "react";
-import { errorMessage, usersApi, type ManagedUser } from "@/lib/backoffice";
-import { administrationIds, hasPermission } from "@/lib/permissions";
+import { useEffect, useState, type FormEvent } from "react";
+import { errorMessage, list, referenceId, scopeLabel, usersApi, type Administration, type ManagedUser, type Property, type Role } from "@/lib/backoffice";
+import { canDelegate, hasPermission } from "@/lib/permissions";
 import { usePermissions } from "./backoffice-shell";
 import Modal from "./modal";
 import { userPayload } from "@/lib/user-management";
+import PasswordField from "./password-field";
 
 export default function UserForm({ user, currentUserId, onClose, onSaved }: { user?: ManagedUser; currentUserId?: number; onClose: () => void; onSaved: () => void }) {
   const permissions = usePermissions();
@@ -13,13 +14,51 @@ export default function UserForm({ user, currentUserId, onClose, onSaved }: { us
   const disable = hasPermission(permissions, "USUARIOS", "DESHABILITAR", undefined, "GLOBAL");
   const ownProfile = !!user && user.id === currentUserId && !globalEdit;
   const identity = !user || globalEdit || ownProfile;
-  const adminIds = administrationIds(permissions, "USUARIOS", "CREAR");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [active, setActive] = useState(user?.estado ?? true);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [administrations, setAdministrations] = useState<Administration[]>([]);
+  const [roleId, setRoleId] = useState("");
+  const [catalogError, setCatalogError] = useState("");
+  const turningOff = !!user && user.estado && !active && user.id !== currentUserId;
+  const selectedRole = roles.find(role => role.id === Number(roleId));
+  useEffect(() => {
+    if (user) return;
+    const controller = new AbortController();
+    Promise.all([
+      list<Role>("/roles", controller.signal),
+      list<Property>("/propiedades", controller.signal).catch(() => [] as Property[]),
+      list<Administration>("/administraciones", controller.signal).catch(() => [] as Administration[]),
+    ]).then(([loadedRoles, loadedProperties, loadedAdministrations]) => {
+      if (controller.signal.aborted) return;
+      setRoles(loadedRoles); setProperties(loadedProperties); setAdministrations(loadedAdministrations); setCatalogError("");
+    }).catch(err => { if (!controller.signal.aborted) setCatalogError(errorMessage(err)); });
+    return () => controller.abort();
+  }, [user]);
+  function roleOptions(role: Role) {
+    if (role.ambito === "GLOBAL") return canDelegate(permissions, role, {}) ? [{ id: 0, label: "Todo el sistema" }] : [];
+    if (role.ambito === "ADMINISTRACION") return administrations.filter(item => canDelegate(permissions, role, { administracionId: item.id })).map(item => ({ id: item.id, label: item.nombre }));
+    return properties.filter(item => canDelegate(permissions, role, { propiedadId: item.id, edificioId: referenceId(item.edificio) })).map(item => ({ id: item.id, label: `Unidad ${item.nroUnidad}` }));
+  }
+  const assignable = roles.filter(role => roleOptions(role).length > 0);
+  const destination = selectedRole && selectedRole.ambito !== "GLOBAL" ? roleOptions(selectedRole) : [];
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     const form = new FormData(event.currentTarget);
+    const password = String(form.get("password") ?? "");
+    const confirmation = String(form.get("confirmPassword") ?? "");
+    if (password !== confirmation && (!user || password || confirmation)) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    if (turningOff && confirmEmail.trim().toLowerCase() !== "desactivar") {
+      setError("Escribí desactivar para confirmar.");
+      return;
+    }
     setBusy(true); setError("");
     try {
       const { body, ownProfile: saveOwnProfile } = userPayload(form, permissions, user, currentUserId);
@@ -31,14 +70,22 @@ export default function UserForm({ user, currentUserId, onClose, onSaved }: { us
   return <Modal title={user ? "Editar usuario" : "Nuevo usuario"} onClose={onClose} busy={busy}><form onSubmit={submit}>
     {error && <p role="alert" className="bo-alert">{error}</p>}
     <fieldset disabled={busy} className="bo-form-grid">
-      <label>Nombre<input name="nombre" required minLength={2} maxLength={100} defaultValue={user?.nombre} autoComplete="given-name" /></label>
-      <label>Apellido<input name="apellido" required minLength={2} maxLength={100} defaultValue={user?.apellido} autoComplete="family-name" /></label>
+      <label>Nombre<input name="nombre" required minLength={2} maxLength={100} pattern="[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ '\-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*" title="Usá solo letras, espacios, apóstrofos o guiones." defaultValue={user?.nombre} autoComplete="given-name" /></label>
+      <label>Apellido<input name="apellido" required minLength={2} maxLength={100} pattern="[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:[ '\-][A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*" title="Usá solo letras, espacios, apóstrofos o guiones." defaultValue={user?.apellido} autoComplete="family-name" /></label>
       <label className="bo-full">Correo electrónico<input name="email" type="email" required maxLength={255} defaultValue={user?.email} readOnly={!identity} autoComplete="email" />{!identity && <small>Los cambios de correo de otra cuenta requieren gestión global.</small>}</label>
       <label>CUIL<input name="cuil" required pattern="[0-9]{11}" maxLength={11} inputMode="numeric" defaultValue={user?.cuil} /></label>
       <label>Fecha de nacimiento<input name="fechaNacimiento" type="date" required max={new Date().toLocaleDateString("en-CA")} defaultValue={user?.fechaNacimiento.slice(0, 10)} /></label>
-      {identity && <label className="bo-full">{user ? "Nueva contraseña (opcional)" : "Contraseña"}<input name="password" type="password" minLength={6} maxLength={18} required={!user} autoComplete="new-password" /></label>}
-      {!user && !globalCreate && <label className="bo-full">Administración<select name="administracionId" required defaultValue={adminIds.length === 1 ? adminIds[0] : ""}><option value="">Seleccionar…</option>{adminIds.map(id => <option key={id} value={id}>Administración #{id}</option>)}</select></label>}
-      {(!user && globalCreate || !!user && disable) && <label className="bo-checkbox bo-full"><input name="estado" type="checkbox" defaultChecked={user?.estado ?? true} disabled={user?.id === currentUserId} /> Usuario activo</label>}
+      {identity && <PasswordField className="bo-full" label={user ? "Nueva contraseña (opcional)" : "Contraseña"} name="password" minLength={6} maxLength={18} required={!user} autoComplete="new-password" />}
+      {identity && <PasswordField className="bo-full" label="Confirmar contraseña" name="confirmPassword" minLength={6} maxLength={18} required={!user} autoComplete="new-password" />}
+      {!user && <>
+        <input type="hidden" name="rolAmbito" value={selectedRole?.ambito ?? ""} />
+        <label className="bo-full">Rol<select name="rolId" required value={roleId} onChange={event => setRoleId(event.target.value)}><option value="">Seleccioná un rol</option>{assignable.map(role => <option key={role.id} value={role.id}>{role.descripcion} · {scopeLabel(role.ambito)}</option>)}</select></label>
+        {selectedRole?.ambito === "ADMINISTRACION" && <label className="bo-full">Administración<select key={selectedRole.id} name="administracionId" required defaultValue={destination.length === 1 ? destination[0].id : ""}><option value="">Seleccionar…</option>{destination.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}
+        {selectedRole?.ambito === "PROPIEDAD" && <label className="bo-full">Propiedad<select key={selectedRole.id} name="propiedadId" required defaultValue={destination.length === 1 ? destination[0].id : ""}><option value="">Seleccionar…</option>{destination.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}
+        {catalogError && <p className="bo-alert bo-full" role="alert">{catalogError}</p>}
+      </>}
+      {(!user && globalCreate || !!user && disable) && <label className="bo-checkbox bo-full"><input name="estado" type="checkbox" checked={active} disabled={user?.id === currentUserId} onChange={event => { setActive(event.target.checked); setConfirmEmail(""); }} /> Usuario activo</label>}
+      {turningOff && <label className="bo-full">Para desactivar, escribí desactivar<input value={confirmEmail} onChange={event => setConfirmEmail(event.target.value)} autoComplete="off" required /></label>}
     </fieldset><div className="bo-form-actions"><button type="button" className="bo-button secondary" disabled={busy} onClick={onClose}>Volver</button><button className="bo-button" disabled={busy}>{busy ? "Guardando…" : "Guardar usuario"}</button></div>
   </form></Modal>;
 }
