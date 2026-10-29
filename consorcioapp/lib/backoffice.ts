@@ -15,6 +15,7 @@ export interface Assignment {
 export const assignmentUser = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.usuario ?? assignment.usuario;
 export const assignmentRole = (assignment: Assignment): Reference | null | undefined => assignment.usuarioRol?.rol ?? assignment.rol;
 export interface Property { id: number; nroUnidad: string; edificio: Reference }
+export interface Building { id: number; nombre: string }
 export interface Administration { id: number; nombre: string }
 export const referenceId = (value: Reference | null | undefined): number | undefined => {
   if (value == null) return undefined;

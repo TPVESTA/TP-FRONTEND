@@ -47,7 +47,7 @@ export default function UserForm({ user, currentUserId, onClose, onSaved }: { us
   const destination = selectedRole && selectedRole.ambito !== "GLOBAL" ? roleOptions(selectedRole) : [];
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || (!user && catalogLoading)) return;
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     const confirmation = String(form.get("confirmPassword") ?? "");
@@ -61,6 +61,13 @@ export default function UserForm({ user, currentUserId, onClose, onSaved }: { us
     }
     setBusy(true); setError("");
     try {
+      if (!user) {
+        if (!selectedRole || !assignable.some(role => role.id === selectedRole.id)) throw new Error("Seleccioná un rol disponible.");
+        if (selectedRole.ambito === "PROPIEDAD") {
+          if (!buildingOptions.some(building => building.id === Number(buildingId))) throw new Error("Seleccioná un edificio disponible.");
+          if (!propertyOptions.some(property => property.id === Number(form.get("propiedadId")))) throw new Error("Seleccioná una propiedad del edificio elegido.");
+        }
+      }
       const { body, ownProfile: saveOwnProfile } = userPayload(form, permissions, user, currentUserId);
       await usersApi.save(body, user?.id, saveOwnProfile);
       onSaved();

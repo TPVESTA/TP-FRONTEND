@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { apiRequest } from "@/lib/api";
 import { errorMessage, list, type Role } from "@/lib/backoffice";
 import { resources, resourceFields, fieldValue, recordLabel, resourcePayload, reservationDay, type Field, type RecordData } from "@/lib/resources";
@@ -33,7 +33,12 @@ export default function ResourceManager({ resource, personal = false, openCreate
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [authorId, setAuthorId] = useState("");
   const [editor, setEditor] = useState<RecordData | "new" | null>(openCreate ? "new" : null);
+  const [detail, setDetail] = useState<DetailState | null>(null);
+  const detailRequest = useRef<AbortController | null>(null);
   const [deleting, setDeleting] = useState<RecordData | null>(null);
   const [canceling, setCanceling] = useState<RecordData | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,6 +64,7 @@ export default function ResourceManager({ resource, personal = false, openCreate
   // Loading completes asynchronously; cleanup prevents updates from older requests.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, [load]);
+  useEffect(() => () => { detailRequest.current?.abort(); }, []);
   const canChangeState = !!editingRow && incidence && allowed("CAMBIAR_ESTADO", editingRow);
   const fields = resourceFields(resource, editingRow).filter(f => !(business && f.name === "usuarioId") && !(incidence && !editingRow && f.name === "closedAt")).map(f => {
     if (incidence && f.name === "estado" && !canChangeState) return { ...f, readOnly: true };
@@ -84,9 +90,43 @@ export default function ResourceManager({ resource, personal = false, openCreate
     return value || "—";
   }
   const visible = personal ? rows.filter(row => relationId(row, "usuario") === user?.id) : rows;
-  const filtered = visible.filter(row => config.fields.some(f => display(row, f).toLocaleLowerCase().includes(query.toLocaleLowerCase())));
-  function open(row: RecordData | "new") {
-    setEditor(row); setSelectedUnitId(row === "new" ? 0 : relationId(row, reservation ? "areaComun" : "unidad") ?? 0); setAdministrationId(row === "new" ? 0 : relationId(row, "administracion") ?? 0); setFormError(""); setNotice("");
+  const authors = incidence ? incidenceAuthors(visible) : [];
+  const invalidRange = reservation && !!dateFrom && !!dateTo && dateFrom > dateTo;
+  const hasFilters = !!(query || dateFrom || dateTo || authorId);
+  const filtered = visible.filter(row => {
+    if (invalidRange) return false;
+    if (reservation && (dateFrom || dateTo)) {
+      const day = reservationDay(String(row.fechaReservacion));
+      if (!day || (dateFrom && day < dateFrom) || (dateTo && day > dateTo)) return false;
+    }
+    if (incidence && authorId && relationId(row, "usuario") !== Number(authorId)) return false;
+    return config.fields.some(f => display(row, f).toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  });
+  function clearFilters() { setQuery(""); setDateFrom(""); setDateTo(""); setAuthorId(""); }
+  function closeEditor() {
+    detailRequest.current?.abort(); detailRequest.current = null;
+    setDetail(null); setEditor(null);
+  }
+  async function open(row: RecordData | "new") {
+    detailRequest.current?.abort(); detailRequest.current = null;
+    setEditor(null); setDetail(null); setSelectedUnitId(0); setAdministrationId(0); setFormError(""); setNotice("");
+    if (row === "new") { setEditor("new"); return; }
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    setDetail({ id: row.id, status: "loading" });
+    try {
+      const { data } = await apiRequest<RecordData>(`/${resource}/${row.id}`, { signal: controller.signal });
+      if (controller.signal.aborted || detailRequest.current !== controller) return;
+      if (!data || Array.isArray(data) || data.id !== row.id) throw new Error("El servidor no devolvió un detalle válido para este registro.");
+      setEditor(data); setDetail(null);
+      setSelectedUnitId(relationId(data, reservation ? "areaComun" : "unidad") ?? 0);
+      setAdministrationId(relationId(data, "administracion") ?? 0);
+      setRows(current => current.map(item => item.id === data.id ? data : item));
+    } catch (err) {
+      if (!controller.signal.aborted && detailRequest.current === controller) setDetail({ id: row.id, status: "error", message: errorMessage(err) });
+    } finally {
+      if (detailRequest.current === controller) detailRequest.current = null;
+    }
   }
   function unitOptions(field: Field) {
     return (references[field.source!] ?? []).filter(r => {
@@ -155,7 +195,7 @@ export default function ResourceManager({ resource, personal = false, openCreate
       return <label key={field.name === "rolId" ? `${field.name}-${administrationId}` : field.name} className={field.type === "textarea" ? "bo-full" : ""}>{field.label}{field.optional ? " (opcional)" : ""}{field.readOnly ? <input readOnly value={editingRow ? display(editingRow, field) : field.name === "estado" ? reservation ? "Reservado" : "Reportado" : "—"} /> : field.source ? <select name={field.name} required={!field.optional} defaultValue={value} onChange={event => { if (["areaComunId", "unidadId"].includes(field.name)) setSelectedUnitId(Number(event.target.value)); if (field.name === "administracionId") setAdministrationId(Number(event.target.value)); }}><option value="">Seleccionar…</option>{value && !options.some(r => String(r.id) === value) && <option value={value} disabled>Opción no disponible</option>}{options.map(r => <option key={r.id} value={r.id}>{recordLabel(r)}</option>)}</select> : field.options ? <select name={field.name} required={!field.optional} defaultValue={value}><option value="">Seleccionar…</option>{field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select> : field.type === "textarea" ? <textarea name={field.name} required={!field.optional} maxLength={255} defaultValue={value} /> : <input name={field.name} type={field.type ?? "text"} required={!field.optional} defaultValue={value} min={field.type === "date" ? reservationDay() : field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={!field.type || field.type === "text" ? field.min : undefined} maxLength={field.type !== "number" ? field.max ?? 255 : undefined} step={field.type === "number" ? field.step ?? "1" : undefined} pattern={field.pattern} />}</label>;
     })}{needsOrigin && <label className="bo-full" key={selectedUnitId}>Propiedad de origen<select name="propiedadId" required defaultValue={origins.length === 1 ? origins[0] : ""}><option value="">Seleccioná tu propiedad</option>{origins.filter(id => !incidence || !(references.propiedades ?? []).some(p => p.id === selectedUnitId) || id === selectedUnitId).map(id => <option key={id} value={id}>{recordLabel((references.propiedades ?? []).find(p => p.id === id) ?? { id })}</option>)}</select></label>}</fieldset>
       {reservation && !!selectedUnitId && !!selectedBuilding && hasPermission(permissions, "RESERVAS", "DISPONIBILIDAD", { edificioId: selectedBuilding }) && <Availability key={selectedUnitId} areaId={selectedUnitId} />}</>}
-      <div className="bo-form-actions"><button className="bo-button secondary" type="button" disabled={busy} onClick={() => setEditor(null)}>Volver</button>{canEdit && <button className="bo-button" disabled={busy || loading || !!error}>{busy ? "Guardando…" : "Guardar cambios"}</button>}</div></form></Modal>}
+      <div className="bo-form-actions"><button className="bo-button secondary" type="button" disabled={busy} onClick={closeEditor}>Volver</button>{canEdit && <button className="bo-button" disabled={busy || loading || !!error}>{busy ? "Guardando…" : "Guardar cambios"}</button>}</div></form>}</Modal>}
     {(canceling || deleting) && <Modal title={canceling ? "Cancelar reserva" : "Confirmar baja"} busy={busy} onClose={() => { setCanceling(null); setDeleting(null); }}><p>{canceling ? "¿Querés cancelar esta reserva? No se podrá reactivar." : resource === "empleados" ? "¿Querés finalizar esta asignación? Se conserva el historial." : "¿Querés dar de baja este registro?"}</p>{formError && <p className="bo-alert" role="alert">{formError}</p>}<div className="bo-form-actions"><button className="bo-button secondary" disabled={busy} onClick={() => { setCanceling(null); setDeleting(null); }}>Volver</button><button className="bo-button destructive" disabled={busy} onClick={() => void mutate((canceling ?? deleting)!, !!canceling)}>{busy ? "Procesando…" : "Confirmar"}</button></div></Modal>}
   </>;
 }
