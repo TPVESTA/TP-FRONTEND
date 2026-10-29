@@ -60,7 +60,7 @@ export default function BackofficeShell({ children, resident = false }: { childr
   if (!user) return <main className="bo-loading"><h1>Consorcio</h1>{error ? <><p role="alert">{error}</p><button className="bo-button" onClick={retry}>Reintentar</button><button className="bo-button secondary" onClick={logout}>Volver al ingreso</button></> : <p role="status">Verificando sesión…</p>}</main>;
   const permitted = canVisit(permissions, pathname);
   const residentLinks = [["/mi-consorcio", "Inicio"], ["/mi-consorcio/reservas", "Mis reservas"], ["/mi-consorcio/incidencias", "Mis incidencias"]];
-  const generalLinks = [["/backoffice", "Resumen"], ["/backoffice/usuarios", "Usuarios"], ["/backoffice/roles", "Roles"]];
+  const generalLinks = [["/backoffice", "Resumen"], ["/backoffice/usuarios", "Usuarios"]];
   const links = (items: string[][]) => items.filter(([href]) => canVisit(permissions, href)).map(([href, label]) => <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>{label}</Link>);
   return <CurrentUser.Provider value={user}><Permissions.Provider value={permissions}><div className="bo-shell">
     <aside className="bo-sidebar">

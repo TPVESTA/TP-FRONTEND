@@ -104,6 +104,14 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .bo-form-grid .bo-checkbox { flex-direction: row; align-items: center; gap: 9px; }
 .bo-checkbox input { width: 16px; height: 16px; accent-color: #087e75; }
 .bo-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+.password-field { display: flex; align-items: stretch; gap: 8px; margin-block-start: 0.5rem; }
+.bo-form-grid .password-field { margin-block-start: 0; }
+.password-field input { flex: 1; min-inline-size: 0; }
+.password-field button { flex: none; min-inline-size: 5.5rem; min-block-size: 44px; padding-inline: 12px; border: 1px solid #d8e1e6; border-radius: 6px; background: #f7fafb; color: #087e75; font-size: 12px; font-weight: 600; cursor: pointer; }
+.password-field button:active { transform: scale(0.97); }
+.password-field button:disabled { cursor: default; opacity: 0.6; }
+@media (hover: hover) and (pointer: fine) { .password-field button:hover { background: #e7f3f2; } }
+@media (prefers-reduced-motion: no-preference) { .password-field button { transition: transform 160ms ease-out; } }
 .bo-section-title { font-size: 15px; font-weight: 600; margin-top: 26px; }
 .bo-assignment-list { display: grid; gap: 10px; }
 .bo-assignment { border: 1px solid #e3e9ec; border-radius: 8px; padding: 13px; display: flex; align-items: center; gap: 12px; font-size: 13px; }

@@ -24,6 +24,12 @@ test('rechaza roles futuros, vencidos, fechas inválidas y relaciones ausentes',
  }
  assert.equal(accessibleBuildingIds(5, [{ ...active, beginAt: new Date(now).toISOString() }], properties, now).size, 1);
 });
+test('acepta la asignacion anidada en usuarioRol y exige que ese rol tambien este vigente', () => {
+ const nested = { id: 2, usuarioRol: { usuario: { id: 5 }, rol: { id: 3 }, beginAt: '2026-10-01T00:00:00Z', endAt: null }, propiedad: 10, beginAt: '2026-10-01T00:00:00Z', endAt: null };
+ assert.equal(accessibleBuildingIds(5, [nested], properties, now).has(1), true);
+ const expiredRole = { ...nested, usuarioRol: { ...nested.usuarioRol, endAt: '2026-10-02T00:00:00Z' } };
+ assert.equal(accessibleBuildingIds(5, [expiredRole], properties, now).size, 0);
+});
 test('admite IDs y objetos sin autorizar referencias inválidas', () => {
  const assignment = { ...active, usuario: 5, propiedad: { id: 20 }, rol: 3 };
  assert.equal(accessibleBuildingIds(5, [assignment], properties, now).has(2), true);

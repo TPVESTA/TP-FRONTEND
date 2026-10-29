@@ -20,12 +20,16 @@ function form() { const f = new FormData(); for (const [key, value] of Object.en
 
 test('Administrativo crea en administración autorizada y no deshabilita cuentas', () => {
   const f = form();
+  f.set('rolAmbito', 'ADMINISTRACION');
+  assert.throws(() => userPayload(f, admin), /rol/);
+  f.set('rolId', '4');
   assert.throws(() => userPayload(f, admin), /administración/);
   f.set('administracionId', '21');
   assert.throws(() => userPayload(f, admin), /administración/);
   f.set('administracionId', '20'); f.set('password', 'test-only'); f.delete('estado');
   const { body } = userPayload(f, admin);
   assert.equal(body.administracionId, 20);
+  assert.equal(body.rolId, 4);
   assert.equal(body.estado, true);
   assert.equal(body.password, 'test-only');
 });
@@ -44,6 +48,17 @@ test('edición propia usa perfil personal y nunca envía estado', () => {
   assert.equal(ownProfile, true);
   assert.equal(body.email, 'nuevo@example.test'); assert.equal(body.password, 'test-only');
   assert.equal(Object.hasOwn(body, 'estado'), false);
+});
+
+test('nombre y apellido rechazan números y símbolos', () => {
+  const f = form();
+  f.set('nombre', 'Ana2');
+  assert.throws(() => userPayload(f, global), /nombre/);
+  f.set('nombre', 'Ana'); f.set('apellido', 'Pérez!');
+  assert.throws(() => userPayload(f, global), /apellido/);
+  f.set('apellido', "O'Connor-Pérez");
+  f.set('rolId', '3'); f.set('rolAmbito', 'GLOBAL');
+  assert.equal(userPayload(f, global).body.apellido, "O'Connor-Pérez");
 });
 
 test('gestión global omite campos sensibles sin cambios y permite cambios explícitos autorizados', () => {

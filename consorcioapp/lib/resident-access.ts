@@ -1,10 +1,23 @@
 import type { RecordData } from "./resources";
 
+function assignmentRelation(assignment: RecordData, key: "usuario" | "rol"): number | undefined {
+  const link = assignment.usuarioRol;
+  if (link && typeof link === "object") {
+    const nested = relationId(link as RecordData, key);
+    if (nested !== undefined) return nested;
+  }
+  return relationId(assignment, key);
+}
+function periodActive(record: RecordData, now: number): boolean {
+  const begin = new Date(String(record.beginAt)).getTime();
+  const end = record.endAt == null ? Infinity : new Date(String(record.endAt)).getTime();
+  return begin <= now && now < end;
+}
 export function currentPropertyAssignments(userId: number, assignments: RecordData[], now = Date.now()): RecordData[] {
   return assignments.filter(assignment => {
-    const begin = new Date(String(assignment.beginAt)).getTime();
-    const end = assignment.endAt == null ? Infinity : new Date(String(assignment.endAt)).getTime();
-    return relationId(assignment, "usuario") === userId && begin <= now && now < end && !!relationId(assignment, "rol") && !!relationId(assignment, "propiedad");
+    const link = assignment.usuarioRol;
+    const linkActive = !link || typeof link !== "object" || periodActive(link as RecordData, now);
+    return assignmentRelation(assignment, "usuario") === userId && periodActive(assignment, now) && linkActive && !!assignmentRelation(assignment, "rol") && !!relationId(assignment, "propiedad");
   });
 }
 
