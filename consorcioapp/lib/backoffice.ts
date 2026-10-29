@@ -4,7 +4,7 @@ import type { Permission } from "./permissions";
 
 export interface ManagedUser extends User { cuil: string }
 export type Scope = "PROPIEDAD" | "ADMINISTRACION" | "GLOBAL";
-export interface Role { id: number; nombre: string; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
+export interface Role { id: number; descripcion: string; ambito: Scope; codigo?: string | null; permisos?: Permission[] }
 export type Reference = number | { id: number };
 export interface Assignment {
   id: number; usuario?: Reference; rol?: Reference;
