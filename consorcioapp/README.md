@@ -2,6 +2,17 @@
 
 Next.js. `npm install`, `npm run dev` (puerto 3001). Las rutas `/api/*` se reenvían a `BACKEND_URL` (por defecto `http://127.0.0.1:3000`).
 
+## Cómo leer el código
+
+`app/` define las páginas y sus rutas. `components/` contiene la interfaz y
+`lib/` reúne el cliente de API, la sesión, los permisos y la configuración de
+los recursos. Las páginas de reservas e incidencias de residentes usan
+directamente `ResourceManager` con `personal`, que limita el listado a los
+registros propios. La misma pantalla se reutiliza en el backoffice.
+
+Para seguir una operación: página → componente → `lib/api.ts` → API Express.
+Los archivos de páginas requeridos por Next.js se mantienen separados.
+
 ## Autorización
 
 `/auth/permisos` devuelve los permisos vigentes. `lib/permissions.ts` evalúa sección, acción y contexto (propiedad, edificio y administración). El shell verifica la navegación y los componentes verifican cada acción; el backend vuelve a autorizar la solicitud. No se infieren privilegios por el nombre visible del rol.

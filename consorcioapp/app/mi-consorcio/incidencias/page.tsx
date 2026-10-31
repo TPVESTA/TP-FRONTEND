@@ -1,4 +1,4 @@
-import ResidentRequests from "@/components/resident-requests";
+import ResourceManager from "@/components/resource-manager";
 export default async function Page({ searchParams }: { searchParams: Promise<{ nueva?: string }> }) {
-  return <ResidentRequests kind="incidencias" openCreate={(await searchParams).nueva === "1"} />;
+  return <ResourceManager key="incidencias" resource="incidencias" personal openCreate={(await searchParams).nueva === "1"} />;
 }
