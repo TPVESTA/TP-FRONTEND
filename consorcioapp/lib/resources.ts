@@ -18,6 +18,10 @@ export interface Field {
   readOnly?: boolean;
   omitUnchanged?: boolean;
   listLabel?: string;
+  /** Solo se muestra como columna del listado. */
+  listOnly?: boolean;
+  /** Ayuda a completar el formulario, pero no se envía al backend. */
+  virtual?: boolean;
 }
 export interface Resource {
   title: string;
@@ -234,17 +238,19 @@ export const resources: Record<string, Resource> = {
           { value: "Reportado", label: "Reportado" },
           { value: "En revisión", label: "En revisión" },
           { value: "Finalizado", label: "Finalizado" },
+          { value: "Cancelado", label: "Cancelado" },
         ],
       },
       description,
       ref("usuarioId", "Usuario", "users", "usuario"),
+      { ...ref("edificioId", "Edificio", "edificios", "unidad.edificio"), virtual: true },
       ref("unidadId", "Unidad", "unidades", "unidad"),
       {
-        name: "closedAt",
-        label: "Fecha de cierre",
+        name: "updatedAt",
+        label: "Fecha de actualización",
         type: "datetime-local",
-        optional: true,
         readOnly: true,
+        listOnly: true,
       },
     ],
   },
@@ -270,11 +276,16 @@ export const resources: Record<string, Resource> = {
       },
       description,
       ref("usuarioId", "Usuario", "users", "usuario"),
+      { ...ref("edificioId", "Edificio", "edificios", "areaComun.edificio"), virtual: true },
       ref("areaComunId", "Área común", "areas-comunes", "areaComun"),
     ],
   },
 };
 
+// Las unidades se identifican por su número; el edificio tiene su propia columna.
+export function unitLabel(row: RecordData): string {
+  return row.nroUnidad ? String(row.nroUnidad) : recordLabel(row);
+}
 export function recordLabel(row: RecordData): string {
   if (row.nombre)
     return `${row.nombre}${row.apellido ? ` ${row.apellido}` : ""}${row.provincia ? ` · ${row.provincia}` : ""}`;
@@ -309,10 +320,15 @@ export function fieldValue(row: RecordData, field: Field): string {
   }
   return String(value);
 }
+// Una incidencia abierta avanza un paso o se cancela; Finalizado y Cancelado son finales.
+const incidenceTransitions: Record<string, string[]> = {
+  Reportado: ["En revisión", "Cancelado"],
+  "En revisión": ["Finalizado", "Cancelado"],
+};
 export function resourceFields(resource: string, row?: RecordData): Field[] {
   return resources[resource].fields.map((field) => {
     if (["reservaciones", "incidencias"].includes(resource) &&
-      (field.name === "usuarioId" || (resource === "incidencias" && !!row && field.name === "unidadId"))) {
+      (field.name === "usuarioId" || (resource === "incidencias" && !!row && ["unidadId", "edificioId"].includes(field.name)))) {
       return { ...field, readOnly: true };
     }
     if (resource === "reservaciones" && row) {
@@ -326,14 +342,13 @@ export function resourceFields(resource: string, row?: RecordData): Field[] {
     }
     if (resource !== "incidencias" || field.name !== "estado") return field;
     if (!row) return { ...field, readOnly: true };
-    const index = field.options!.findIndex(
-      (option) => option.value === row.estado,
-    );
+    const next = incidenceTransitions[String(row.estado)];
     return {
       ...field,
-      readOnly: index < 0 || index === field.options!.length - 1,
-      options:
-        index < 0 ? field.options : field.options!.slice(index, index + 2),
+      readOnly: !next,
+      options: next
+        ? field.options!.filter((option) => option.value === row.estado || next.includes(option.value))
+        : field.options,
     };
   });
 }
@@ -353,7 +368,7 @@ export function resourcePayload(
       (field.name === "estado" || (row && field.name === "usuarioId"))
     )
       continue;
-    if (field.readOnly) continue;
+    if (field.readOnly || field.virtual || field.listOnly) continue;
     const value = String(form.get(field.name) ?? "");
     if (field.omitUnchanged && row && value === row[field.name]) continue;
     if (

@@ -42,7 +42,7 @@ async function setup({ permissions = globalPermissions, handler, user } = {}) {
 }
 function choose(view, label, value) { fireEvent.change(view.getByLabelText(label), { target: { value } }); }
 function fillPerson(view) {
-  const values = { nombre: 'Nueva', apellido: 'Persona', email: 'nuevo@example.test', cuil: '20123456789',
+  const values = { nombre: 'Nueva', apellido: 'Persona', email: 'nuevo@example.test', telefono: '3415551234', cuil: '20123456789',
     fechaNacimiento: '2000-01-01', password: 'ROOT123', confirmPassword: 'ROOT123' };
   for (const [name, value] of Object.entries(values)) fireEvent.change(view.container.querySelector(`[name="${name}"]`), { target: { value } });
 }
@@ -103,7 +103,9 @@ test('un administrativo solo puede elegir edificios y propiedades dentro de su Ã
   const { view } = await setup({ permissions });
   choose(view, 'Rol', '11');
   assert.deepEqual(optionIds(view.getByLabelText('Edificio')), ['', '10']);
-  choose(view, 'Edificio', '10');
+  // Con un Ãºnico edificio disponible queda elegido y la propiedad ya se puede seleccionar.
+  assert.equal(view.getByLabelText('Edificio').value, '10');
+  assert.equal(view.getByLabelText('Propiedad').disabled, false);
   assert.deepEqual(optionIds(view.getByLabelText('Propiedad')), ['', '101', '102']);
 });
 

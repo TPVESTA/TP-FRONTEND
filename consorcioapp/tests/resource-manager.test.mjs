@@ -142,7 +142,7 @@ test('una respuesta de detalle inválida no habilita un formulario con datos del
 });
 
 for (const state of ['Reservado', 'Cancelado']) {
-test(`reservas usa fecha, área y estado del detalle (${state}) y recalcula la edición`, async () => {
+test(`reservas usa fecha y área del detalle (${state}), oculta el estado y recalcula la edición`, async () => {
   const area = id => ({ id, descripcion: `SUM ${id}`, edificio: { id: 10 } });
   const listed = { id: 10, descripcion: 'Descripción vieja', fechaReservacion: '2099-10-06T15:00:00Z',
     estado: 'Reservado', usuario: { id: 1 }, propiedadOrigen: null, areaComun: area(200) };
@@ -151,6 +151,7 @@ test(`reservas usa fecha, área y estado del detalle (${state}) y recalcula la e
   const { view, requests } = await setup({ resource: 'reservaciones', rows: [listed], handler: request => {
     if (request.url === '/api/reservaciones/10') return success(fresh);
     if (request.url === '/api/areas-comunes') return success([area(200), area(201)]);
+    if (request.url === '/api/edificios') return success([building]);
     if (request.url === '/api/propiedades' || request.url.startsWith('/api/reservaciones/disponibilidad?')) return success([]);
     assert.fail('Consulta inesperada: ' + request.url);
   } });
@@ -159,12 +160,13 @@ test(`reservas usa fecha, área y estado del detalle (${state}) y recalcula la e
   assert.equal((await dialog.findByLabelText('Descripción')).value, fresh.descripcion);
   assert.equal(dialog.getByLabelText('Día de la reserva').value, state === 'Reservado' ? '2099-10-08' : '08/10/2099');
   assert.equal(dialog.getByLabelText('Área común').value, state === 'Reservado' ? '201' : 'SUM 201');
-  assert.equal(dialog.getByLabelText('Estado').value, state);
+  assert.equal(dialog.queryByLabelText('Estado'), null);
   assert.equal(!!dialog.queryByRole('button', { name: 'Guardar cambios' }), state === 'Reservado');
   assert.ok(requests.some(request => request.url === '/api/reservaciones/disponibilidad?areaComunId=201'));
 });
 }
 
+const building = { id: 10, nombre: 'Edificio Centro' };
 const commonArea = { id: 200, descripcion: 'SUM del edificio', edificio: { id: 10 } };
 const reservationRows = [
   { id: 21, fechaReservacion: '2099-11-01T02:59:59Z', descripcion: 'Reserva anterior' },
@@ -177,8 +179,9 @@ const incidence = (id, usuario, descripcion) => ({
 });
 async function setupBusiness(options) {
   return setup({ ...options, handler: request => {
-    if (['/api/areas-comunes', '/api/unidades'].includes(request.url)) return success([commonArea]);
+    if (['/api/areas-comunes', '/api/unidades'].includes(request.url)) return success(options.units ?? [commonArea]);
     if (request.url === '/api/propiedades') return success([]);
+    if (request.url === '/api/edificios') return success(options.buildings ?? [building]);
     if (request.url.startsWith('/api/reservaciones/disponibilidad?')) return success([]);
     if (options.handler) return options.handler(request);
     assert.fail('Consulta inesperada: ' + request.url);
@@ -272,8 +275,7 @@ test('Mis incidencias no ofrece autores ajenos ni necesita permiso de gestión d
   const rows = [incidence(31, { id: 1, nombre: 'Ana', apellido: 'Pérez' }, 'Incidencia propia'),
     incidence(32, { id: 2, nombre: 'Persona', apellido: 'Ajena' }, 'Incidencia ajena')];
   const { view, requests } = await setupBusiness({ resource: 'incidencias', personal: true, permissions, rows });
-  const select = view.getByLabelText('Usuario');
-  assert.deepEqual([...select.options].map(option => option.value), ['', '1']);
+  assert.equal(view.queryByLabelText('Usuario'), null, 'En Mi consorcio solo se ven los registros propios');
   expectRows(view, ['Incidencia propia'], ['Incidencia ajena']);
   assert.equal(view.queryByText('Persona Ajena'), null);
   assert.deepEqual(requests.map(request => request.url), ['/api/incidencias']);
@@ -302,4 +304,98 @@ test('actualizar conserva el filtro de usuario y permite limpiarlo si ya no qued
   assert.ok(view.getByText('No hay coincidencias.'));
   fireEvent.click(view.getByRole('button', { name: 'Limpiar filtros' }));
   expectRows(view, ['Incidencia de Ana'], ['Incidencia de Beto']);
+});
+
+test('incidencias filtra por estado también en Mi consorcio y lo combina con la limpieza de filtros', async () => {
+  const ana = { id: 1, nombre: 'Ana', apellido: 'Pérez' };
+  const rows = [incidence(31, ana, 'Recién reportada'), { ...incidence(32, ana, 'En curso'), estado: 'En revisión' },
+    { ...incidence(33, ana, 'Descartada'), estado: 'Cancelado' }];
+  for (const personal of [false, true]) {
+    const { view } = await setupBusiness({ resource: 'incidencias', personal, rows });
+    const select = view.getByLabelText('Estado');
+    assert.deepEqual([...select.options].map(option => option.value), ['', 'Reportado', 'En revisión', 'Finalizado', 'Cancelado']);
+    fireEvent.change(select, { target: { value: 'Cancelado' } });
+    expectRows(view, ['Descartada'], ['Recién reportada', 'En curso']);
+    fireEvent.click(view.getByRole('button', { name: 'Limpiar filtros' }));
+    assert.equal(select.value, '');
+    expectRows(view, rows.map(row => row.descripcion));
+    cleanup();
+  }
+});
+
+test('reservas ofrece el filtro de usuario solo en el backoffice', async () => {
+  const rows = [reservationRows[0], { ...reservationRows[1], usuario: { id: 2, nombre: 'Beto', apellido: 'Gómez' } }];
+  const { view } = await setupBusiness({ resource: 'reservaciones', rows });
+  fireEvent.change(view.getByLabelText('Usuario'), { target: { value: '2' } });
+  expectRows(view, ['Cocina al inicio'], ['Reserva anterior']);
+  cleanup();
+  const personal = await setupBusiness({ resource: 'reservaciones', personal: true, rows });
+  assert.equal(personal.view.queryByLabelText('Usuario'), null);
+});
+
+test('el listado de incidencias muestra edificio y fecha de actualización, sin cierre ni baja', async () => {
+  const row = { ...incidence(31, { id: 1, nombre: 'Ana', apellido: 'Pérez' }, 'Pérdida de agua'),
+    unidad: { ...commonArea, edificio: { id: 10, nombre: 'Edificio Centro' } }, updatedAt: '2099-10-05T15:30:00Z', closedAt: '2099-10-06T10:00:00Z' };
+  const { view } = await setupBusiness({ resource: 'incidencias', rows: [row] });
+  const headers = [...view.container.querySelectorAll('th')].map(th => th.textContent);
+  assert.deepEqual(headers, ['Estado', 'Descripción', 'Usuario', 'Edificio', 'Unidad', 'Fecha de actualización', 'Acciones']);
+  assert.ok(view.getByText('Edificio Centro'));
+  assert.ok(view.getByText(new Date('2099-10-05T15:30:00Z').toLocaleString('es-AR')));
+  assert.equal(view.queryByRole('button', { name: 'Dar de baja' }), null);
+});
+
+test('crear incidencia oculta el estado y elige solo el único edificio disponible', async () => {
+  const { view } = await setupBusiness({ resource: 'incidencias', rows: [incidence(31, { id: 1 }, 'Existente')] });
+  fireEvent.click(view.getByRole('button', { name: '+ Agregar incidencia' }));
+  const dialog = within(view.getByRole('dialog'));
+  assert.equal(dialog.queryByLabelText('Estado'), null);
+  assert.equal(dialog.queryByLabelText(/Fecha de/), null);
+  assert.equal(dialog.getByLabelText('Edificio').value, '10');
+  const unit = dialog.getByLabelText('Unidad');
+  assert.equal(unit.disabled, false);
+  assert.deepEqual([...unit.options].map(option => option.value), ['', '200']);
+});
+
+test('con varios edificios, la unidad se habilita y filtra después de elegir el edificio', async () => {
+  const units = [commonArea, { id: 300, descripcion: 'Cochera', edificio: { id: 20 } }];
+  const { view } = await setupBusiness({ resource: 'incidencias', rows: [incidence(31, { id: 1 }, 'Existente')], units,
+    buildings: [building, { id: 20, nombre: 'Edificio Norte' }] });
+  fireEvent.click(view.getByRole('button', { name: '+ Agregar incidencia' }));
+  const dialog = within(view.getByRole('dialog'));
+  assert.equal(dialog.getByLabelText('Edificio').value, '');
+  assert.equal(dialog.getByLabelText('Unidad').disabled, true);
+  fireEvent.change(dialog.getByLabelText('Edificio'), { target: { value: '20' } });
+  assert.deepEqual([...dialog.getByLabelText('Unidad').options].map(option => option.value), ['', '300']);
+});
+
+test('reserva nueva también elige el edificio cuando hay uno solo', async () => {
+  const { view } = await setupBusiness({ resource: 'reservaciones', rows: reservationRows.slice(0, 1) });
+  fireEvent.click(view.getByRole('button', { name: '+ Agregar reserva' }));
+  const dialog = within(view.getByRole('dialog'));
+  assert.equal(dialog.getByLabelText('Edificio').value, '10');
+  assert.deepEqual([...dialog.getByLabelText('Área común').options].map(option => option.value), ['', '200']);
+});
+
+test('el listado de reservas muestra el edificio y no ofrece baja', async () => {
+  const row = { ...reservationRows[0], areaComun: { ...commonArea, nroUnidad: 'SUM', edificio: { id: 10, nombre: 'Edificio Centro' } } };
+  const { view } = await setupBusiness({ resource: 'reservaciones', rows: [row] });
+  const headers = [...view.container.querySelectorAll('th')].map(th => th.textContent);
+  assert.deepEqual(headers, ['Día de la reserva', 'Estado', 'Descripción', 'Usuario', 'Edificio', 'Área común', 'Acciones']);
+  assert.ok(view.getByText('Edificio Centro'));
+  assert.equal(view.queryByRole('button', { name: 'Dar de baja' }), null);
+  assert.ok(view.getByRole('button', { name: 'Cancelar' }));
+});
+
+test('unidad y área común se muestran por su número, sin la descripción que nombra al edificio', async () => {
+  const unit = { id: 200, nroUnidad: '1A', descripcion: 'Departamento 1A, piso 1, Edificio Centro.', edificio: { id: 10, nombre: 'Edificio Centro' } };
+  const area = { id: 201, nroUnidad: 'SUM', descripcion: 'Salón de usos múltiples.', edificio: { id: 10 } };
+  const incidences = await setupBusiness({ resource: 'incidencias', units: [unit], rows: [{ ...incidence(31, { id: 1 }, 'Pérdida'), unidad: unit }] });
+  assert.ok(incidences.view.getByText('1A'));
+  assert.equal(incidences.view.queryByText(unit.descripcion), null);
+  fireEvent.click(incidences.view.getByRole('button', { name: '+ Agregar incidencia' }));
+  assert.deepEqual([...within(incidences.view.getByRole('dialog')).getByLabelText('Unidad').options].map(option => option.textContent), ['Seleccionar…', '1A']);
+  cleanup();
+  const reservations = await setupBusiness({ resource: 'reservaciones', units: [area], rows: [{ ...reservationRows[0], areaComun: area }] });
+  assert.ok(reservations.view.getByText('SUM'));
+  assert.equal(reservations.view.queryByText(area.descripcion), null);
 });

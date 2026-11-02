@@ -7,6 +7,7 @@ export interface User {
   nombre: string;
   apellido: string;
   email: string;
+  telefono: string;
   fechaNacimiento: string;
   estado: boolean;
 }
@@ -15,6 +16,7 @@ export interface RegisterInput extends LoginInput {
   cuil: string;
   nombre: string;
   apellido: string;
+  telefono: string;
   fechaNacimiento: string;
   estado: boolean;
 }

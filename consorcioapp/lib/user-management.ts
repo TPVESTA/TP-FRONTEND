@@ -10,6 +10,10 @@ export function userPayload(form: FormData, permissions: PermissionContext[], us
     if (!personName.test(value)) throw new Error(`${label} solo puede contener letras, espacios, apóstrofos y guiones.`);
     return value;
   };
+  const phone = (value: string) => {
+    if (!/^\d{8,15}$/.test(value)) throw new Error("El teléfono debe tener entre 8 y 15 dígitos, sin espacios ni guiones.");
+    return value;
+  };
   const globalEdit = hasPermission(permissions, "USUARIOS", "EDITAR", undefined, "GLOBAL");
   const globalCreate = hasPermission(permissions, "USUARIOS", "CREAR", undefined, "GLOBAL");
   const ownProfile = !!user && user.id === currentUserId && !globalEdit;
@@ -18,6 +22,7 @@ export function userPayload(form: FormData, permissions: PermissionContext[], us
     nombre: person(text("nombre"), "El nombre"),
     apellido: person(text("apellido"), "El apellido"),
     cuil: text("cuil"),
+    telefono: phone(text("telefono")),
     fechaNacimiento: text("fechaNacimiento"),
   };
   if (identity && (!user || text("email") !== user.email)) body.email = text("email");

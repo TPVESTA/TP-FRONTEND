@@ -15,7 +15,7 @@ function load(name) {
 const { userPayload } = load('user-management');
 const admin = [{ rolId: 1, rolCodigo: 'ADMINISTRATIVO', ambito: 'ADMINISTRACION', administracionId: 20, edificioIds: [10], permisos: [{ seccion: 'USUARIOS', crear: true, leer: true, editar: true, borrar: true, acciones: [] }] }];
 const global = [{ rolId: 2, rolCodigo: 'SUPERADMIN', ambito: 'GLOBAL', edificioIds: [], permisos: [] }];
-const user = { id: 5, nombre: 'Ana', apellido: 'Pérez', email: 'ana@example.test', cuil: '20123456789', fechaNacimiento: '1990-01-01', estado: true };
+const user = { id: 5, nombre: 'Ana', apellido: 'Pérez', email: 'ana@example.test', telefono: '3415551234', cuil: '20123456789', fechaNacimiento: '1990-01-01', estado: true };
 function form() { const f = new FormData(); for (const [key, value] of Object.entries(user)) f.set(key, String(value)); f.set('estado', 'on'); return f; }
 
 test('Administrativo crea en administración autorizada y no deshabilita cuentas', () => {
@@ -70,4 +70,12 @@ test('gestión global omite campos sensibles sin cambios y permite cambios expl�
   const changed = userPayload(f, global, user, 99).body;
   assert.equal(changed.email, 'nuevo@example.test'); assert.equal(changed.estado, false);
   assert.equal(Object.hasOwn(userPayload(f, global, user, 5).body, 'estado'), false);
+});
+
+test('el teléfono es obligatorio y admite solo entre 8 y 15 dígitos', () => {
+  assert.equal(userPayload(form(), global, user, 1).body.telefono, '3415551234');
+  for (const telefono of ['', '341-555-1234', '1234567', '1'.repeat(16)]) {
+    const data = form(); data.set('telefono', telefono);
+    assert.throws(() => userPayload(data, global, user, 1), /teléfono/);
+  }
 });
