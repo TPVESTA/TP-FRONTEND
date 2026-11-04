@@ -36,12 +36,10 @@ export const auth = {
     return data.contextos;
   },
   login: (input: LoginInput) => authenticate("/auth/login", input),
-  register: (input: RegisterInput) => authenticate("/auth/register", input),
   async profile(signal?: AbortSignal) {
     const { data } = await apiRequest<User>("/auth/profile", { signal });
     if (!data) throw new Error("No se recibió el perfil.");
     return data;
   },
-  verify: () => apiRequest<{ valid: boolean; user: User }>("/auth/verify"),
   logout: () => session.clear(),
 };

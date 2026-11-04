@@ -9,7 +9,6 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,8 +24,9 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Backoffice */
-.bo-shell { --ink: #162d37; --muted: #647781; --line: #e3e9ec; --accent: #087e75; background: #f5f7f9; color: var(--ink); min-height: 100vh; display: flex; font-family: var(--font-geist-sans), Arial, sans-serif; }
+/* Backoffice, Mi consorcio, login y pantalla de carga comparten colores y fuente. */
+.bo-shell, .bo-login, .bo-loading { --ink: #162d37; --muted: #647781; --line: #e3e9ec; --accent: #087e75; font-family: var(--font-geist-sans), Arial, sans-serif; }
+.bo-shell { background: #f5f7f9; color: var(--ink); min-height: 100vh; display: flex; }
 .bo-sidebar { width: 238px; flex-shrink: 0; padding: 32px 20px; background: #142f39; color: #dce8ec; position: fixed; inset: 0 auto 0 0; display: flex; flex-direction: column; }
 .bo-brand { display: grid; grid-template-columns: 38px 1fr; column-gap: 10px; align-items: center; font-size: 21px; font-weight: 650; color: white; padding: 0 8px; }
 .bo-logo { grid-row: span 2; border: 1px solid #6a929c; border-radius: 11px; display: grid; place-items: center; height: 39px; color: #9ee3d6; }
@@ -36,14 +36,13 @@ body {
 .bo-sidebar nav a { display: flex; align-items: center; gap: 14px; border-radius: 8px; padding: 12px 15px; font-size: 14px; }
 .bo-sidebar nav a[aria-current], .bo-sidebar nav a:hover { background: #284953; color: white; }
 .bo-sidebar nav a[aria-current] { box-shadow: inset 3px 0 #65c9b3; }
-.bo-sidebar nav a span { font-size: 21px; }
 .bo-sidebar-bottom { margin-top: auto; font-size: 11px; color: #aac0c8; padding: 20px 8px 0; }
 .bo-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #65c9b3; margin-right: 7px; }
 .bo-workspace { width: calc(100% - 238px); margin-left: 238px; }
 .bo-header { min-height: 87px; display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 40px; border-bottom: 1px solid var(--line); background: white; font-size: 13px; color: var(--muted); }
-.bo-account, .bo-person { display: flex; gap: 12px; align-items: center; }
-.bo-account strong, .bo-person strong { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
-.bo-account small, .bo-person small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.bo-account { display: flex; gap: 12px; align-items: center; }
+.bo-account strong { display: block; font-size: 13px; color: var(--ink); font-weight: 600; }
+.bo-account small { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 .bo-avatar { background: #e8f3f0; color: #27766c; border: 1px solid #d8eae5; border-radius: 50%; width: 37px; height: 37px; flex-shrink: 0; display: grid; place-items: center; font-size: 12px; font-weight: 650; text-transform: uppercase; }
 .bo-main { max-width: 1450px; margin: auto; padding: 42px 40px; }
 .bo-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
@@ -58,18 +57,12 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .bo-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 25px; box-shadow: 0 2px 4px #122d3703; }
 .bo-card h2 { font-size: 17px; font-weight: 600; }
 .bo-muted { color: #647781; font-size: 13px; line-height: 1.7; margin: 8px 0 16px; }
-.bo-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 28px; }
-.bo-stats p { font-size: 13px; color: var(--muted); }
-.bo-stats strong { display: block; font-size: 36px; font-weight: 600; margin: 15px 0 10px; letter-spacing: -1px; }
-.bo-stats small { font-size: 11px; color: var(--muted); }
 .bo-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 22px; }
 .bo-shortcuts a { border: 1px solid var(--line); border-radius: 9px; padding: 23px; }
 .bo-shortcuts a:hover { border-color: #79b9ac; background: #fbfefd; }
-.bo-shortcut-icon { display: inline-grid; place-items: center; width: 40px; height: 40px; background: #e8f5f1; color: var(--accent); font-size: 25px; border-radius: 9px; margin-bottom: 16px; }
 .bo-shortcuts h3 { font-size: 15px; font-weight: 600; }
 .bo-shortcuts p { font-size: 13px; color: var(--muted); margin: 8px 0 22px; }
 .bo-shortcuts strong { font-size: 12px; color: var(--accent); }
-.bo-footnote { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 25px 0; }
 .bo-table-card { padding: 0; overflow: hidden; }
 .bo-toolbar { padding: 20px; display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
 .bo-search { flex: 1; min-width: 200px; }
@@ -94,7 +87,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .bo-alert button { text-decoration: underline; margin-left: 8px; cursor: pointer; }
 .bo-success { background: #e8f5ed; color: #276647; }
 .bo-confirm { background: #fff6e8; color: #79592a; }
-.bo-modal { margin: auto; width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; border: 1px solid #e2e8ec; border-radius: 14px; background: white; color: #162d37; padding: 26px; box-shadow: 0 25px 100px #122d3744; }
+.bo-modal { margin: auto; width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #e2e8ec; border-radius: 14px; background: white; color: #162d37; padding: 26px; box-shadow: 0 25px 100px #122d3744; }
 .bo-modal::backdrop { background: #102c3b80; backdrop-filter: blur(2px); }
 .bo-modal-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
 .bo-modal-heading h2 { font-size: 19px; font-weight: 650; }
@@ -121,23 +114,27 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .bo-assignment small { display: block; color: #647781; margin-top: 5px; font-size: 11px; }
 .bo-loading { min-height: 100vh; display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 20px; background: #f5f7f9; color: #162d37; }
 .bo-loading h1 { font-size: 24px; font-weight: 600; }
-.bo-shell :focus-visible, .bo-modal :focus-visible { outline: 3px solid #68b6a9; outline-offset: 3px; }
+/* Login: misma tarjeta, formulario y botón que el resto de la app. */
+.bo-login { min-height: 100vh; display: grid; place-items: center; padding: 48px 16px; background: #f5f7f9; color: var(--ink); }
+.bo-login-card { width: min(100%, 420px); padding: 32px; }
+.bo-login-brand { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 650; margin-bottom: 26px; }
+.bo-login-brand .bo-logo { width: 36px; height: 36px; color: var(--accent); border-color: #c6ddd7; }
+.bo-login h1 { font-size: 24px; letter-spacing: -.5px; font-weight: 650; }
+.bo-login-fields { grid-template-columns: 1fr; }
+.bo-login-submit { width: 100%; margin-top: 24px; padding-block: 12px; }
+.bo-shell :focus-visible, .bo-modal :focus-visible, .bo-login :focus-visible, .bo-loading :focus-visible { outline: 3px solid #68b6a9; outline-offset: 3px; }
 @media (max-width: 1000px) { .bo-sidebar { width: 200px; padding-inline: 14px; } .bo-workspace { width: calc(100% - 200px); margin-left: 200px; } .bo-main { padding: 28px 22px; } .bo-header { padding-inline: 22px; } .bo-account small { display: none; } }
-@media (max-width: 720px) { .bo-shell { display: block; } .bo-sidebar { position: static; width: 100%; padding: 18px; } .bo-brand { width: 190px; font-size: 18px; } .bo-nav-label, .bo-sidebar-bottom { display: none; } .bo-sidebar nav { display: flex; gap: 6px; margin-top: 18px; } .bo-sidebar nav a { padding: 8px 12px; } .bo-workspace { width: 100%; margin: 0; } .bo-header { padding: 14px 20px; min-height: 70px; } .bo-header > span { display: none; } .bo-account { width: 100%; } .bo-account .bo-button { margin-left: auto; } .bo-page-heading { align-items: flex-start; flex-direction: column; gap: 18px; } .bo-page-heading h1 { font-size: 26px; } .bo-stats { gap: 9px; } .bo-stats .bo-card { padding: 15px 12px; } .bo-stats p { font-size: 11px; } .bo-stats small { display: none; } .bo-shortcuts { grid-template-columns: 1fr; } .bo-main { padding: 27px 18px; } .bo-form-grid { grid-template-columns: 1fr; } .bo-assignment { flex-wrap: wrap; } }
+@media (max-width: 720px) { .bo-shell { display: block; } .bo-sidebar { position: static; width: 100%; padding: 18px; } .bo-brand { width: 190px; font-size: 18px; } .bo-nav-label, .bo-sidebar-bottom { display: none; } .bo-sidebar nav { display: flex; gap: 6px; margin-top: 18px; } .bo-sidebar nav a { padding: 8px 12px; } .bo-workspace { width: 100%; margin: 0; } .bo-header { padding: 14px 20px; min-height: 70px; } .bo-header > span { display: none; } .bo-account { width: 100%; } .bo-account .bo-button { margin-left: auto; } .bo-page-heading { align-items: flex-start; flex-direction: column; gap: 18px; } .bo-page-heading h1 { font-size: 26px; } .bo-shortcuts { grid-template-columns: 1fr; } .bo-main { padding: 27px 18px; } .bo-form-grid { grid-template-columns: 1fr; } .bo-assignment { flex-wrap: wrap; } }
 .bo-sidebar { overflow-y: auto; }
 .bo-sidebar nav[aria-label="Gestión del consorcio"] a { padding-top: 9px; padding-bottom: 9px; font-size: 12px; }
 .bo-sidebar .bo-nav-label { margin-top: 24px; }
 .bo-cell-content { max-width: 280px; overflow-wrap: anywhere; }
 .resident-properties { margin: -12px 0 28px; display: grid; gap: 8px; }
-.resident-property-picker { display: grid; gap: 8px; width: min(100%, 640px); font-size: 13px; font-weight: 600; }
-.resident-property-picker select { width: 100%; min-width: 0; border: 1px solid #c6ddd7; background: white; border-radius: 8px; padding: 13px 14px; color: #30665d; font-size: 14px; font-weight: 400; }
 .resident-properties .bo-muted { margin: 0; }
 .resident-actions, .resident-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-bottom: 28px; }
 .resident-action { display: block; padding: 28px; border-radius: 14px; border: 1px solid #087e75; background: #087e75; color: white; transition: transform .15s, box-shadow .15s; }
 .resident-action:hover { transform: translateY(-2px); box-shadow: 0 8px 22px #142f3915; }
 .resident-action.report { background: white; color: var(--ink); border-color: var(--line); }
-.resident-action-icon { display: inline-flex; padding: 12px; background: #ffffff22; border-radius: 12px; margin-bottom: 20px; }
-.resident-action.report .resident-action-icon { color: #9a672a; background: #fff3e2; }
 .resident-action h2 { font-size: 23px; font-weight: 650; letter-spacing: -.5px; }
 .resident-action p { font-size: 14px; line-height: 1.6; margin: 9px 0 25px; color: #deefec; }
 .resident-action.report p { color: var(--muted); }
@@ -147,12 +144,10 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .resident-section-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .resident-section-heading a { font-size: 12px; color: var(--accent); }
 .resident-section-heading a:hover { text-decoration: underline; }
-.resident-next { padding-top: 25px; }
-.resident-date { margin: 18px 0 9px; font-size: 19px; font-weight: 600; text-transform: capitalize; }
-.resident-next h3, .resident-reports h3 { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.resident-reports h3 { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .resident-reports { margin-top: 20px; }
 .resident-reports li { padding: 17px 0; border-top: 1px solid var(--line); }
 .resident-reports li > div { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .resident-reports li > p { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 9px; overflow-wrap: anywhere; }
-@media (max-width: 720px) { .resident-actions, .resident-summary { grid-template-columns: 1fr; gap: 16px; } .resident-action { padding: 23px; } .bo-sidebar nav[aria-label="Mi consorcio"] { flex-wrap: wrap; } }
+@media (max-width: 720px) { .resident-actions, .resident-summary { grid-template-columns: 1fr; gap: 16px; } .resident-action { padding: 23px; } }
 @media (max-width: 720px) { .bo-sidebar nav[aria-label="Gestión del consorcio"] { overflow-x: auto; white-space: nowrap; } }

@@ -22,6 +22,11 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 // React, DOM, API y lógica del proyecto reales; se puede reemplazar el contexto
 // de sesión de Next sin tener que ejecutar el servidor para cada prueba.
 export function loadComponent(component, mocks = {}) {
+  return loadModule(component, mocks).default;
+}
+
+// Igual que loadComponent, pero devuelve todos los exports (por ejemplo, los hooks del shell).
+export function loadModule(component, mocks = {}) {
   const cache = new Map();
   function load(filename) {
     if (cache.has(filename)) return cache.get(filename).exports;
@@ -43,5 +48,5 @@ export function loadComponent(component, mocks = {}) {
     vm.runInThisContext(`(function(require, module, exports) {\n${source}\n})`, { filename })(localRequire, loaded, loaded.exports);
     return loaded.exports;
   }
-  return load(path.join(root, component)).default;
+  return load(path.join(root, component));
 }

@@ -408,17 +408,6 @@ export function originPayload(
   return { propiedadId: propertyId };
 }
 
-/** Only send API descriptors; serialized ORM rows also carry id and rol. */
-export const permissionPayload = (rows: Permission[]): Permission[] =>
-  rows.map((p) => ({
-    seccion: p.seccion,
-    crear: p.crear,
-    leer: p.leer,
-    editar: p.editar,
-    borrar: p.borrar,
-    acciones: [...p.acciones],
-  }));
-
 interface DelegableRole {
   ambito: Scope;
   codigo?: string | null;

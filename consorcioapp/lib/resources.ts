@@ -28,7 +28,6 @@ export interface Resource {
   singular: string;
   description: string;
   fields: Field[];
-  softDelete?: boolean;
 }
 const name: Field = { name: "nombre", label: "Nombre", min: 2, max: 100 };
 const description: Field = {
@@ -112,7 +111,6 @@ export const resources: Record<string, Resource> = {
     title: "Administraciones de consorcio",
     singular: "administración",
     description: "Organizá las administraciones de los consorcios. La dirección es la calle; la localidad se elige aparte.",
-    softDelete: true,
     fields: [
       name,
       tax,
@@ -125,7 +123,6 @@ export const resources: Record<string, Resource> = {
     title: "Edificios",
     singular: "edificio",
     description: "Gestioná los edificios y su ubicación.",
-    softDelete: true,
     fields: [
       name,
       tax,
@@ -417,22 +414,4 @@ export function reservationDate(day: string, now = new Date()): string {
   if (day < reservationDay(now))
     throw new Error("No se puede reservar un día que ya terminó.");
   return iso;
-}
-
-/** @deprecated Use canBusiness from permissions.ts for authorization by context. */
-export function canModifyReservation(
-  row: RecordData,
-  userId?: number,
-  systemAdmin = false,
-): boolean {
-  const owner = row.usuario ?? row.usuarioId;
-  const ownerId =
-    typeof owner === "object" && owner !== null && "id" in owner
-      ? owner.id
-      : owner;
-  return (
-    userId !== undefined &&
-    (systemAdmin || Number(ownerId) === userId) &&
-    row.estado === "Reservado"
-  );
 }

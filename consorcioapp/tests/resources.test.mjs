@@ -8,7 +8,7 @@ const exports = {};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/resources.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, { exports, Date });
-const { resources, resourceFields, fieldValue, resourcePayload, reservationDay, reservationDate, canModifyReservation } = exports;
+const { resources, resourceFields, fieldValue, resourcePayload, reservationDay, reservationDate } = exports;
 
 test('áreas comunes admite capacidad nula y conserva cero al crear y editar', () => {
   const fields = resourceFields('areas-comunes');
@@ -131,17 +131,9 @@ test('reservas usa el día de Buenos Aires en los límites UTC y admite hoy comp
   assert.equal(new Date(reservationDate('2099-10-03', now)).toISOString().slice(0, 10), '2099-10-03');
 });
 
-test('reservas solo permite modificar al dueño con estado Reservado devuelto por API', () => {
-  for (const usuario of [5, { id: 5 }]) {
-    const row = { id: 1, usuario, estado: 'Reservado', fechaReservacion: '2020-01-01T03:00:00Z' };
-    assert.equal(canModifyReservation(row, 5), true);
-    assert.equal(canModifyReservation(row, 6), false);
-    assert.equal(canModifyReservation(row), false);
-  }
-  assert.equal(canModifyReservation({ id: 1, usuarioId: 5, estado: 'Reservado' }, 5), true);
+test('una reserva finalizada o cancelada queda en solo lectura', () => {
   for (const estado of ['Finalizado', 'Cancelado']) {
     const row = { id: 1, usuario: 5, estado };
-    assert.equal(canModifyReservation(row, 5), false);
     const fields = resourceFields('reservaciones', row);
     assert.equal(fields.every(f => f.readOnly), true);
     assert.throws(() => resourcePayload(new FormData(), fields, row), /estado Reservado/);

@@ -162,6 +162,8 @@ test(`reservas usa fecha y área del detalle (${state}), oculta el estado y reca
   assert.equal(dialog.getByLabelText('Área común').value, state === 'Reservado' ? '201' : 'SUM 201');
   assert.equal(dialog.queryByLabelText('Estado'), null);
   assert.equal(!!dialog.queryByRole('button', { name: 'Guardar cambios' }), state === 'Reservado');
+  // La disponibilidad se pide desde un efecto: se espera a que React lo ejecute antes de verificarlo.
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
   assert.ok(requests.some(request => request.url === '/api/reservaciones/disponibilidad?areaComunId=201'));
 });
 }
@@ -398,4 +400,31 @@ test('unidad y área común se muestran por su número, sin la descripción que 
   const reservations = await setupBusiness({ resource: 'reservaciones', units: [area], rows: [{ ...reservationRows[0], areaComun: area }] });
   assert.ok(reservations.view.getByText('SUM'));
   assert.equal(reservations.view.queryByText(area.descripcion), null);
+});
+
+test('después de guardar o cancelar se recarga solo el listado, no las referencias', async () => {
+  const row = incidence(31, { id: 1, nombre: 'Ana', apellido: 'Pérez' }, 'Pérdida de agua');
+  const incidences = await setupBusiness({ resource: 'incidencias', rows: [row], handler: request => {
+    if (request.url === '/api/incidencias/31') return success(row);
+  } });
+  fireEvent.click(incidences.view.getByRole('button', { name: 'Ver / editar' }));
+  const dialog = within(incidences.view.getByRole('dialog'));
+  await dialog.findByLabelText('Descripción');
+  const start = incidences.requests.length;
+  await act(async () => { fireEvent.submit(dialog.getByRole('button', { name: 'Guardar cambios' }).closest('form')); });
+  await incidences.view.findByText('Cambios guardados correctamente.');
+  const afterSave = incidences.requests.slice(start).map(request => request.method + ' ' + request.url);
+  assert.deepEqual(afterSave, ['GET /api/incidencias/31', 'PUT /api/incidencias/31', 'GET /api/incidencias']);
+  cleanup();
+
+  const booking = reservationRows[0];
+  const reservations = await setupBusiness({ resource: 'reservaciones', rows: [booking], handler: request => {
+    if (request.url === '/api/reservaciones/' + booking.id) return success(booking);
+  } });
+  fireEvent.click(reservations.view.getByRole('button', { name: 'Cancelar' }));
+  const begin = reservations.requests.length;
+  await act(async () => { fireEvent.click(within(reservations.view.getByRole('dialog')).getByRole('button', { name: 'Confirmar' })); });
+  await reservations.view.findByText('Reserva cancelada.');
+  const afterCancel = reservations.requests.slice(begin).map(request => request.method + ' ' + request.url);
+  assert.deepEqual(afterCancel, ['GET /api/reservaciones/' + booking.id, 'PUT /api/reservaciones/' + booking.id, 'GET /api/reservaciones']);
 });

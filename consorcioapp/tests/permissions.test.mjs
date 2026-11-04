@@ -7,7 +7,7 @@ const exports = {};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(new URL('../lib/permissions.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, { exports });
-const { hasPermission, canBusiness, canResource, canVisit, canDelegate, originPropertyIds, originPayload, validContexts, permissionPayload } = exports;
+const { hasPermission, canBusiness, canResource, canVisit, canDelegate, originPropertyIds, originPayload, validContexts } = exports;
 const p = (seccion, flags = {}) => ({ seccion, crear: false, leer: false, editar: false, borrar: false, acciones: [], ...flags });
 const grant = (ambito, permisos, rest = {}) => ({ rolId: 1, rolCodigo: null, ambito, edificioIds: [10], permisos, ...(ambito === 'PROPIEDAD' ? { propiedadId: 100 } : ambito === 'ADMINISTRACION' ? { administracionId: 20 } : {}), ...rest });
 // Initial matrix from TP-BACKEND/AUTORIZACION.md. Permissions returned by the API remain authoritative.
@@ -115,11 +115,7 @@ test('seleccionar origen exige una propiedad con CREAR en el mismo edificio y re
   assert.equal(JSON.stringify(originPayload([admin()], 'RESERVAS', 10)), '{}');
 });
 
-test('valida la respuesta de permisos y elimina metadatos ORM al guardar la matriz', () => {
+test('valida la respuesta de permisos', () => {
   assert.equal(validContexts([resident(), administrative(), admin()]), true);
   for (const malformed of [null, {}, [{}], [{ ...resident(), propiedadId: undefined }], [{ ...administrative(), administracionId: 0 }], [{ ...resident(), edificioIds: ['10'] }], [{ ...resident(), permisos: [{ seccion: 'RESERVAS', crear: 'true' }] }]]) assert.equal(validContexts(malformed), false);
-  const body = permissionPayload([{ ...p('RESERVAS', { leer: true }), id: 4, rol: 6 }]);
-  assert.equal(Object.hasOwn(body[0], 'id'), false);
-  assert.equal(Object.hasOwn(body[0], 'rol'), false);
-  assert.equal(body[0].leer, true);
 });

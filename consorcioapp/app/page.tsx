@@ -1,21 +1,32 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { session, SESSION_EXPIRED_EVENT } from "@/lib/api";
-import { auth, type User } from "@/lib/auth";
-import PasswordField from "@/components/password-field";
 import { useRouter } from "next/navigation";
+import { session, SESSION_EXPIRED_EVENT } from "@/lib/api";
+import { auth } from "@/lib/auth";
+import PasswordField from "@/components/password-field";
+
+// El personal de gestión (algún rol de administración o global) entra al backoffice; quien solo
+// tiene roles de propiedad, a Mi consorcio. Si no se pueden consultar los permisos, Mi consorcio.
+async function homePath(signal?: AbortSignal) {
+  try {
+    const contexts = await auth.permissions(signal);
+    return contexts.some(context => context.ambito !== "PROPIEDAD") ? "/backoffice" : "/mi-consorcio";
+  } catch {
+    return "/mi-consorcio";
+  }
+}
 
 export default function Home() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
     const expired = () => {
-      setUser(null);
+      setRedirecting(false);
       setError(session.getExpiredMessage() || "Tu sesión venció. Volvé a iniciar sesión.");
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expired);
@@ -23,8 +34,9 @@ export default function Home() {
       try {
         if (!session.getToken() && session.getExpiredMessage()) setError(session.getExpiredMessage()!);
         if (session.getToken()) {
-          const profile = await auth.profile(controller.signal);
-          if (!controller.signal.aborted) { setUser(profile); router.replace("/mi-consorcio"); }
+          await auth.profile(controller.signal);
+          const path = await homePath(controller.signal);
+          if (!controller.signal.aborted) { setRedirecting(true); router.replace(path); }
         }
       } catch (err) {
         if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "No se pudo recuperar la sesión.");
@@ -46,9 +58,10 @@ export default function Home() {
     setLoading(true);
     setError("");
     try {
-      setUser(await auth.login({ email: String(fields.get("email")).trim(), password: String(fields.get("password")) }));
+      await auth.login({ email: String(fields.get("email")).trim(), password: String(fields.get("password")) });
       form.reset();
-      router.replace("/mi-consorcio");
+      setRedirecting(true);
+      router.replace(await homePath());
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión.");
     } finally {
@@ -57,23 +70,21 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-slate-100 px-6 py-16 text-slate-900">
-      <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-sm" aria-busy={loading}>
-        <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-teal-700">Consorcio</p>
-        <h1 className="mb-6 text-2xl font-semibold">{user ? `Hola, ${user.nombre}` : "Iniciar sesión"}</h1>
-        {error && <p role="alert" className="mb-5 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-        {user ? (
-          <div className="space-y-5">
-            <p>Sesión iniciada como <strong>{user.email}</strong>.</p>
-            <button className="w-full rounded-lg bg-teal-700 p-3 font-medium text-white" onClick={() => { auth.logout(); setUser(null); setError(""); }}>Cerrar sesión</button>
-          </div>
-        ) : (
-          <form onSubmit={login} className="space-y-5">
-            <label className="block text-sm font-medium">Correo electrónico
-              <input name="email" type="email" autoComplete="username" required disabled={loading} className="mt-2 w-full rounded-lg border border-slate-300 p-3" />
-            </label>
-            <PasswordField className="block text-sm font-medium" label="Contraseña" name="password" required minLength={6} maxLength={18} autoComplete="current-password" disabled={loading} inputClassName="w-full rounded-lg border border-slate-300 p-3" />
-            <button disabled={loading} className="w-full rounded-lg bg-teal-700 p-3 font-medium text-white disabled:opacity-50">{loading ? "Cargando…" : "Ingresar"}</button>
+    <main className="bo-login">
+      <section className="bo-card bo-login-card" aria-busy={loading}>
+        <p className="bo-login-brand"><span className="bo-logo" aria-hidden="true">V</span> Vesta</p>
+        <p className="bo-eyebrow">ADMINISTRACIÓN DE CONSORCIOS</p>
+        <h1>Iniciar sesión</h1>
+        {error && <p role="alert" className="bo-alert">{error}</p>}
+        {redirecting ? <p className="bo-muted" role="status">Ingresando…</p> : (
+          <form onSubmit={login}>
+            <fieldset className="bo-form-grid bo-login-fields" disabled={loading}>
+              <label className="bo-full">Correo electrónico
+                <input name="email" type="email" autoComplete="username" spellCheck={false} required />
+              </label>
+              <PasswordField className="bo-full" label="Contraseña" name="password" required minLength={6} maxLength={18} autoComplete="current-password" />
+            </fieldset>
+            <button className="bo-button bo-login-submit" disabled={loading}>{loading ? "Cargando…" : "Ingresar"}</button>
           </form>
         )}
       </section>

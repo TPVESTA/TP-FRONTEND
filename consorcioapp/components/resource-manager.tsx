@@ -81,6 +81,12 @@ export default function ResourceManager({ resource, personal = false, openCreate
     } catch (err) { if (!signal?.aborted) { setRows([]); setError(errorMessage(err)); } }
     finally { if (!signal?.aborted) setLoading(false); }
   }, [resource, config, business, permissions]);
+  // Después de guardar alcanza con el listado: ninguna pantalla usa su propio recurso como
+  // referencia, así que una mutación no cambia edificios, unidades ni demás opciones.
+  const reloadRows = useCallback(async () => {
+    try { setRows(await list<RecordData>(`/${resource}`)); setError(""); }
+    catch (err) { setRows([]); setError(errorMessage(err)); }
+  }, [resource]);
   // Loading completes asynchronously; cleanup prevents updates from older requests.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const controller = new AbortController(); void load(controller.signal); return () => controller.abort(); }, [load]);
@@ -211,7 +217,7 @@ export default function ResourceManager({ resource, personal = false, openCreate
         Object.assign(body, originPayload(permissions, section, buildingId, propertyId, privateUnit ? unit!.id : undefined));
       }
       await apiRequest(editor === "new" ? `/${resource}` : `/${resource}/${editor.id}`, { method: editor === "new" ? "POST" : "PUT", body });
-      setEditor(null); setNotice("Cambios guardados correctamente."); await load();
+      setEditor(null); setNotice("Cambios guardados correctamente."); await reloadRows();
     } catch (err) { setFormError(errorMessage(err)); }
     finally { setBusy(false); }
   }
@@ -225,7 +231,7 @@ export default function ResourceManager({ resource, personal = false, openCreate
         if (!data || !allowed("EDITAR", data)) throw new Error("La reserva ya no se puede cancelar. Actualizá el listado.");
       }
       await apiRequest(`/${resource}/${row.id}`, { method: cancel ? "PUT" : "DELETE", ...(cancel ? { body: { estado: "Cancelado" } } : {}) });
-      setDeleting(null); setCanceling(null); setNotice(cancel ? "Reserva cancelada." : resource === "empleados" ? "Asignación finalizada. Se conserva su historial." : "Registro dado de baja."); await load();
+      setDeleting(null); setCanceling(null); setNotice(cancel ? "Reserva cancelada." : resource === "empleados" ? "Asignación finalizada. Se conserva su historial." : "Registro dado de baja."); await reloadRows();
     } catch (err) { setFormError(errorMessage(err)); }
     finally { setBusy(false); }
   }
