@@ -29,6 +29,16 @@ test('sin roles, permisos ausentes y roles globales ordinarios deniegan por defe
   assert.equal(canVisit([admin()], '/backoffice/desconocido'), false);
 });
 
+test('solo los roles de administración o globales entran al backoffice', () => {
+  for (const contexts of [[resident()], [owner()], [resident(), owner()]]) {
+    assert.equal(canVisit(contexts, '/backoffice'), false);
+    assert.equal(canVisit(contexts, '/backoffice/reservaciones'), false);
+    assert.equal(canVisit(contexts, '/backoffice/edificios'), false);
+  }
+  for (const contexts of [[maintenance()], [administrative()], [admin()], [resident(), administrative()]])
+    assert.equal(canVisit(contexts, '/backoffice'), true);
+});
+
 test('la matriz diferencia Residente, Propietario, Mantenimiento y Administrativo', () => {
   assert.equal(canVisit([resident()], '/mi-consorcio/reservas'), true);
   assert.equal(canVisit([owner()], '/mi-consorcio/reservas'), false);

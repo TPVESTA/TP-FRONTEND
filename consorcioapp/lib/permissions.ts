@@ -333,6 +333,8 @@ export function canVisit(contexts: PermissionContext[], path: string): boolean {
     return hasPermission(contexts, "RESERVAS", "LEER");
   if (path.startsWith("/mi-consorcio/incidencias"))
     return hasPermission(contexts, "INCIDENCIAS", "LEER");
+  // El backoffice es solo para el personal de gestión (roles de administración o globales).
+  if (!contexts.some((c) => c.ambito !== "PROPIEDAD")) return false;
   if (path === "/backoffice")
     return Object.keys(resourceSections).some((r) =>
       canResource(contexts, r, "LEER"),
